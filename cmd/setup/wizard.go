@@ -67,12 +67,12 @@ func collectRequired(cfg *Config) error {
 			huh.NewNote().
 				Title("Step 2: Install App & Get Bot Token").
 				Description(
-					"1. Go to OAuth & Permissions\n"+
-						"2. Click Install to Workspace\n"+
+					"1. In the sidebar, click Install App\n"+
+						"2. Click \"Install to [your workspace]\"\n"+
 						"3. Review permissions and click Allow\n"+
-						"4. Copy the Bot User OAuth Token (starts with xoxb-)"),
+						"4. You'll see the Bot User OAuth Token — copy it (starts with xoxb-)"),
 			huh.NewInput().
-				Title("Bot Token").
+				Title("Bot User OAuth Token").
 				Placeholder("xoxb-...").
 				Value(&cfg.Slack.BotToken).
 				Validate(required("bot token")),
@@ -82,8 +82,9 @@ func collectRequired(cfg *Config) error {
 			huh.NewNote().
 				Title("Step 3: Get the Signing Secret").
 				Description(
-					"1. Go to Basic Information\n"+
-						"2. Under App Credentials, copy the Signing Secret"),
+					"1. In the sidebar, click Basic Information\n"+
+						"2. Scroll to App Credentials\n"+
+						"3. Next to Signing Secret, click Show, then copy it"),
 			huh.NewInput().
 				Title("Signing Secret").
 				EchoMode(huh.EchoModePassword).
