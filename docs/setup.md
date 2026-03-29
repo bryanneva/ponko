@@ -11,7 +11,7 @@ Get Ponko running in Slack in under 10 minutes.
 ## Quick Start (automated)
 
 ```bash
-./scripts/setup.sh
+go run ./cmd/setup
 ```
 
 The setup script walks you through everything interactively. It creates your config, provisions infrastructure, and deploys.
@@ -109,7 +109,7 @@ cp ponko.example.yaml ponko.yaml
 # Edit ponko.yaml with your values, set deploy.platform to "docker"
 
 # Generate .env from config
-./scripts/setup.sh deploy
+go run ./cmd/setup deploy
 
 # Start services
 docker compose up -d
@@ -134,10 +134,10 @@ See [Slack setup guide — Dashboard Setup](slack-setup.md#dashboard-setup-optio
 
 ```bash
 # Re-deploy from existing ponko.yaml
-./scripts/setup.sh deploy
+go run ./cmd/setup deploy
 
 # Validate config and check health
-./scripts/setup.sh validate
+go run ./cmd/setup validate
 ```
 
 ## Troubleshooting

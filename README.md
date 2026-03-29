@@ -24,13 +24,13 @@ You'll need these before you start:
 
 ## Quick Start
 
-### Option A: Setup script (~10 min)
+### Option A: Setup wizard (~10 min)
 
 ```bash
-./scripts/setup.sh
+go run ./cmd/setup
 ```
 
-The script walks you through collecting credentials, provisioning Fly.io infrastructure, and deploying. It generates secrets automatically. You'll need to have your Slack app created and your Anthropic API key ready before running it.
+The interactive wizard walks you through collecting credentials, provisioning Fly.io infrastructure, and deploying. It generates secrets automatically. You'll need to have your Slack app created and your Anthropic API key ready before running it.
 
 ### Option B: Manual deploy
 
