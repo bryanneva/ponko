@@ -96,10 +96,10 @@ func collectRequired(cfg *Config) error {
 			huh.NewNote().
 				Title("Step 4: Get the Bot User ID").
 				Description(
-					"1. Go to your Slack workspace\n"+
-						"2. Find "+botName+" in any channel or in the Apps section\n"+
-						"3. Click on "+botName+"'s name to view its profile\n"+
-						"4. Click the ··· menu and select Copy member ID"),
+					"1. Open your Slack workspace\n"+
+						"2. Find "+botName+" under Apps in the sidebar and click it\n"+
+						"3. Click "+botName+"'s name at the top of the conversation\n"+
+						"4. The Member ID is shown in the details panel — copy it"),
 			huh.NewInput().
 				Title("Bot User ID").
 				Placeholder("U...").
