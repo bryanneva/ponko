@@ -18,60 +18,30 @@ func collectRequired(cfg *Config) error {
 				Value(&cfg.Deploy.Platform),
 		).Title("Platform"),
 
-		// Slack Step 1: Create the app
+		// Slack Step 1: Create app from manifest
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Step 1: Create a Slack App").
+				Title("Step 1: Create a Slack App from Manifest").
 				Description(
-					"1. Go to api.slack.com/apps\n"+
-						"2. Click Create New App > From scratch\n"+
-						"3. Name your app (e.g. \"Ponko\")\n"+
-						"4. Select your workspace\n"+
-						"5. Click Create App"),
+					"1. Go to api.slack.com/apps and click Create New App\n"+
+						"2. Choose \"From a manifest\"\n"+
+						"3. Select your workspace\n"+
+						"4. Switch to JSON tab and paste the contents of:\n"+
+						"   slack-app-manifest.json (in the repo root)\n"+
+						"5. Click Create\n\n"+
+						"This sets up all scopes and event subscriptions automatically.\n"+
+						"You'll update the event URL after deploy."),
 			huh.NewConfirm().
-				Title("Ready to continue?").
+				Title("App created?").
 				Affirmative("Next").
 				Negative("").
 				Value(new(bool)),
 		).Title("Slack Setup"),
 
-		// Slack Step 2: OAuth scopes
+		// Slack Step 2: Install and get bot token
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Step 2: Configure OAuth Scopes").
-				Description(
-					"In your Slack app, go to OAuth & Permissions and add these Bot Token Scopes:\n\n"+
-						"  app_mentions:read  — receive @mention events\n"+
-						"  chat:write         — send messages and replies\n"+
-						"  reactions:write     — add emoji reactions for status"),
-			huh.NewConfirm().
-				Title("Scopes added?").
-				Affirmative("Next").
-				Negative("").
-				Value(new(bool)),
-		).Title("Slack Setup"),
-
-		// Slack Step 3: Event subscriptions (note only — URL set after deploy)
-		huh.NewGroup(
-			huh.NewNote().
-				Title("Step 3: Enable Event Subscriptions").
-				Description(
-					"1. Go to Event Subscriptions in the sidebar\n"+
-						"2. Toggle Enable Events to ON\n"+
-						"3. Skip the Request URL for now — you'll set it after deploy\n"+
-						"4. Under Subscribe to bot events, add: app_mention\n"+
-						"5. Click Save Changes"),
-			huh.NewConfirm().
-				Title("Events enabled?").
-				Affirmative("Next").
-				Negative("").
-				Value(new(bool)),
-		).Title("Slack Setup"),
-
-		// Slack Step 4: Install and get bot token
-		huh.NewGroup(
-			huh.NewNote().
-				Title("Step 4: Install App & Get Bot Token").
+				Title("Step 2: Install App & Get Bot Token").
 				Description(
 					"1. Go to OAuth & Permissions\n"+
 						"2. Click Install to Workspace\n"+
@@ -84,10 +54,10 @@ func collectRequired(cfg *Config) error {
 				Validate(required("bot token")),
 		).Title("Slack Setup"),
 
-		// Slack Step 5: Signing secret
+		// Slack Step 3: Signing secret
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Step 5: Get the Signing Secret").
+				Title("Step 3: Get the Signing Secret").
 				Description(
 					"1. Go to Basic Information\n"+
 						"2. Under App Credentials, copy the Signing Secret"),
@@ -98,10 +68,10 @@ func collectRequired(cfg *Config) error {
 				Validate(required("signing secret")),
 		).Title("Slack Setup"),
 
-		// Slack Step 6: Bot user ID
+		// Slack Step 4: Bot user ID
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Step 6: Get the Bot User ID").
+				Title("Step 4: Get the Bot User ID").
 				Description(
 					"1. Go to your Slack workspace\n"+
 						"2. Find the bot in any channel or in the Apps section\n"+
