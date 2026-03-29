@@ -208,7 +208,7 @@ func main() {
 		Pool:       pool,
 		Claude:     claudeClient,
 		Slack:      slackClient,
-		AppBaseURL: os.Getenv("APP_BASE_URL"),
+		AppBaseURL: os.Getenv("DASHBOARD_URL"),
 	})
 	river.AddWorker(workers, &jobs.ExecuteWorker{
 		Pool:         pool,
