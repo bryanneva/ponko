@@ -32,12 +32,13 @@ yaml_get() {
         | sed "s/'$//"
 }
 
-# Write a value to ponko.yaml
 yaml_set() {
     local key="$1"
     local value="$2"
     if grep -qE "^${key}:" "$CONFIG_FILE" 2>/dev/null; then
-        sed -i '' "s|^\(${key}:\).*|\1 \"${value}\"|" "$CONFIG_FILE"
+        # Use awk for replacement to avoid sed delimiter conflicts with user input
+        awk -v k="$key" -v v="$value" '{if ($0 ~ "^"k":") print k": \""v"\""; else print}' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"
+        mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
     fi
 }
 
@@ -105,8 +106,6 @@ load_config() {
     CFG_OTEL_EXPORTER=$(yaml_get "otel_exporter")
 }
 
-# Add a secret to the secrets array if the value is non-empty.
-# Usage: add_secret "ENV_VAR" "$value"
 add_secret() {
     local env_var="$1"
     local value="$2"
@@ -115,8 +114,6 @@ add_secret() {
     fi
 }
 
-# Add a line to the .env file if the value is non-empty.
-# Usage: add_env "ENV_VAR" "$value"
 add_env() {
     local env_var="$1"
     local value="$2"
@@ -330,6 +327,7 @@ interactive_setup() {
 
     # Deploy
     echo ""
+    load_config
     if [ "$platform" = "fly" ]; then
         deploy_fly
     else
@@ -341,8 +339,6 @@ interactive_setup() {
 
 deploy_fly() {
     info "Deploying to Fly.io..."
-
-    load_config
 
     local app_name="$CFG_APP_NAME"
     if [ -z "$app_name" ]; then
@@ -485,8 +481,6 @@ deploy_fly() {
 
 deploy_docker() {
     info "Generating .env for Docker..."
-
-    load_config
 
     ENV_FILE="$PROJECT_DIR/.env"
     cat > "$ENV_FILE" <<EOF
