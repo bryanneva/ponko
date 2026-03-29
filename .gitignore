@@ -20,6 +20,9 @@ docker-data/
 .idea/
 .DS_Store
 
+# Claude local config (contains deployment-specific details)
+CLAUDE.local.md
+
 # MCP config (contains auth keys)
 .mcp.json
 
