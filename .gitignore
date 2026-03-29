@@ -1,6 +1,7 @@
 # Go
 bin/
 /server
+/setup
 *.exe
 vendor/
 
@@ -19,6 +20,9 @@ docker-data/
 .vscode/
 .idea/
 .DS_Store
+
+# Playwright MCP
+.playwright-mcp/
 
 # Claude local config (contains deployment-specific details)
 CLAUDE.local.md
