@@ -18,39 +18,119 @@ func collectRequired(cfg *Config) error {
 				Value(&cfg.Deploy.Platform),
 		).Title("Platform"),
 
+		// Slack Step 1: Create the app
 		huh.NewGroup(
 			huh.NewNote().
-				Title("Slack App").
-				Description("You need a Slack app with bot token scopes.\nSee docs/slack-setup.md for setup instructions."),
+				Title("Step 1: Create a Slack App").
+				Description(
+					"1. Go to api.slack.com/apps\n"+
+						"2. Click Create New App > From scratch\n"+
+						"3. Name your app (e.g. \"Ponko\")\n"+
+						"4. Select your workspace\n"+
+						"5. Click Create App"),
+			huh.NewConfirm().
+				Title("Ready to continue?").
+				Affirmative("Next").
+				Negative("").
+				Value(new(bool)),
+		).Title("Slack Setup"),
+
+		// Slack Step 2: OAuth scopes
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Step 2: Configure OAuth Scopes").
+				Description(
+					"In your Slack app, go to OAuth & Permissions and add these Bot Token Scopes:\n\n"+
+						"  app_mentions:read  — receive @mention events\n"+
+						"  chat:write         — send messages and replies\n"+
+						"  reactions:write     — add emoji reactions for status"),
+			huh.NewConfirm().
+				Title("Scopes added?").
+				Affirmative("Next").
+				Negative("").
+				Value(new(bool)),
+		).Title("Slack Setup"),
+
+		// Slack Step 3: Event subscriptions (note only — URL set after deploy)
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Step 3: Enable Event Subscriptions").
+				Description(
+					"1. Go to Event Subscriptions in the sidebar\n"+
+						"2. Toggle Enable Events to ON\n"+
+						"3. Skip the Request URL for now — you'll set it after deploy\n"+
+						"4. Under Subscribe to bot events, add: app_mention\n"+
+						"5. Click Save Changes"),
+			huh.NewConfirm().
+				Title("Events enabled?").
+				Affirmative("Next").
+				Negative("").
+				Value(new(bool)),
+		).Title("Slack Setup"),
+
+		// Slack Step 4: Install and get bot token
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Step 4: Install App & Get Bot Token").
+				Description(
+					"1. Go to OAuth & Permissions\n"+
+						"2. Click Install to Workspace\n"+
+						"3. Review permissions and click Allow\n"+
+						"4. Copy the Bot User OAuth Token (starts with xoxb-)"),
 			huh.NewInput().
 				Title("Bot Token").
-				Description("Bot User OAuth Token (xoxb-...)").
 				Placeholder("xoxb-...").
 				Value(&cfg.Slack.BotToken).
 				Validate(required("bot token")),
+		).Title("Slack Setup"),
+
+		// Slack Step 5: Signing secret
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Step 5: Get the Signing Secret").
+				Description(
+					"1. Go to Basic Information\n"+
+						"2. Under App Credentials, copy the Signing Secret"),
 			huh.NewInput().
 				Title("Signing Secret").
-				Description("App Signing Secret from Basic Information").
+				EchoMode(huh.EchoModePassword).
 				Value(&cfg.Slack.SigningSecret).
 				Validate(required("signing secret")),
+		).Title("Slack Setup"),
+
+		// Slack Step 6: Bot user ID
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Step 6: Get the Bot User ID").
+				Description(
+					"1. Go to your Slack workspace\n"+
+						"2. Find the bot in any channel or in the Apps section\n"+
+						"3. Click on the bot's name to view its profile\n"+
+						"4. Click the ··· menu and select Copy member ID"),
 			huh.NewInput().
 				Title("Bot User ID").
-				Description("Bot's member ID — click bot profile → ... → Copy member ID").
 				Placeholder("U...").
 				Value(&cfg.Slack.BotUserID).
 				Validate(required("bot user ID")),
-		).Title("Slack"),
+		).Title("Slack Setup"),
 
+		// Anthropic API key
 		huh.NewGroup(
-			huh.NewInput().
+			huh.NewNote().
 				Title("Anthropic API Key").
-				Description("From console.anthropic.com").
+				Description(
+					"1. Go to console.anthropic.com\n"+
+						"2. Create an API key\n"+
+						"3. Paste it below"),
+			huh.NewInput().
+				Title("API Key").
 				Placeholder("sk-ant-...").
 				EchoMode(huh.EchoModePassword).
 				Value(&cfg.AI.AnthropicAPIKey).
 				Validate(required("Anthropic API key")),
 		).Title("AI"),
 
+		// Bot settings
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Bot Name").
@@ -103,6 +183,14 @@ func collectOptional(cfg *Config) error {
 
 	if wantDashboard {
 		groups = append(groups, huh.NewGroup(
+			huh.NewNote().
+				Title("Dashboard OAuth Setup").
+				Description(
+					"In your Slack app settings:\n"+
+						"1. Add User Token Scope: identity.basic\n"+
+						"2. Under OAuth & Permissions > Redirect URLs, add:\n"+
+						"   https://<your-host>/api/auth/slack/callback\n\n"+
+						"Then grab these values from Basic Information:"),
 			huh.NewInput().
 				Title("Slack Client ID").
 				Description("OAuth Client ID from Basic Information").
@@ -114,7 +202,7 @@ func collectOptional(cfg *Config) error {
 				Value(&cfg.Dashboard.SlackClientSecret),
 			huh.NewInput().
 				Title("Slack Team ID").
-				Description("Your workspace's Team ID (T...)").
+				Description("From your workspace URL: app.slack.com/client/<TEAM_ID>").
 				Placeholder("T...").
 				Value(&cfg.Dashboard.SlackTeamID),
 		).Title("Dashboard OAuth"))
