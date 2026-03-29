@@ -3,57 +3,48 @@
 # Then fill in your values, or run: ./scripts/setup.sh
 
 # ── Bot ───────────────────────────────────────────────
-bot:
-  name: "Ponko"                    # Display name in prompts and Slack messages
-  timezone: "America/Los_Angeles"  # IANA timezone for scheduled messages
-  system_prompt: ""                # Optional: override default personality
+bot_name: "Ponko"                      # Display name in prompts and Slack messages
+bot_timezone: "America/Los_Angeles"    # IANA timezone for scheduled messages
+bot_system_prompt: ""                  # Optional: override default personality
 
 # ── Slack (required) ──────────────────────────────────
-slack:
-  bot_token: ""                    # Bot User OAuth Token (xoxb-...)
-  signing_secret: ""               # App Signing Secret
-  bot_user_id: ""                  # Bot's member ID (U...)
+slack_bot_token: ""                    # Bot User OAuth Token (xoxb-...)
+slack_signing_secret: ""               # App Signing Secret
+slack_bot_user_id: ""                  # Bot's member ID (U...)
 
 # ── AI (required) ────────────────────────────────────
-ai:
-  anthropic_api_key: ""            # From console.anthropic.com
+anthropic_api_key: ""                  # From console.anthropic.com
 
 # ── Deployment ────────────────────────────────────────
-deploy:
-  platform: "fly"                  # "fly" or "docker"
-  app_name: ""                     # Fly.io app name (generated if blank)
-  region: "iad"                    # Fly.io region
-  url: ""                          # Public URL (e.g., https://your-app.fly.dev)
-  api_key: ""                      # Bearer token for API auth (generated if blank)
-  cookie_signing_key: ""           # Session signing (generated if blank)
-  worker_concurrency: 10
+deploy_platform: "fly"                 # "fly" or "docker"
+deploy_app_name: ""                    # Fly.io app name (generated if blank)
+deploy_region: "iad"                   # Fly.io region
+deploy_url: ""                         # Public URL (e.g., https://your-app.fly.dev)
+deploy_api_key: ""                     # Bearer token for API auth (generated if blank)
+deploy_cookie_signing_key: ""          # Session signing (generated if blank)
+deploy_worker_concurrency: 10
 
 # ── Dashboard OAuth (optional) ────────────────────────
-dashboard:
-  slack_client_id: ""
-  slack_client_secret: ""
-  slack_team_id: ""
+dashboard_slack_client_id: ""
+dashboard_slack_client_secret: ""
+dashboard_slack_team_id: ""
 
 # ── MCP Tools (optional) ─────────────────────────────
-mcp:
-  server_urls: []                  # Comma-separated MCP server URLs
-  access_key: ""                   # Shared access key for MCP servers
+mcp_server_urls: []                    # Comma-separated MCP server URLs
+mcp_access_key: ""                     # Shared access key for MCP servers
 
 # ── GitHub MCP (optional) ────────────────────────────
-github:
-  mcp_url: ""                      # GitHub MCP server URL
-  pat: ""                          # GitHub personal access token
+github_mcp_url: ""                     # GitHub MCP server URL
+github_pat: ""                         # GitHub personal access token
 
 # ── Linear MCP (optional) ────────────────────────────
-linear:
-  mcp_url: ""                      # Linear MCP server URL
-  access_token: ""                 # Linear MCP access token
-  token_url: ""                    # OAuth token refresh URL
-  client_id: ""                    # OAuth client ID
-  client_secret: ""                # OAuth client secret
-  refresh_token: ""                # OAuth refresh token
+linear_mcp_url: ""                     # Linear MCP server URL
+linear_access_token: ""                # Linear MCP access token
+linear_token_url: ""                   # OAuth token refresh URL
+linear_client_id: ""                   # OAuth client ID
+linear_client_secret: ""               # OAuth client secret
+linear_refresh_token: ""               # OAuth refresh token
 
 # ── Observability (optional) ─────────────────────────
-observability:
-  otel_endpoint: ""                # OpenTelemetry collector endpoint
-  otel_exporter: ""                # "otlp" or "stdout"
+otel_endpoint: ""                      # OpenTelemetry collector endpoint
+otel_exporter: ""                      # "otlp" or "stdout"

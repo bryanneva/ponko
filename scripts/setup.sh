@@ -20,10 +20,10 @@ warn()  { printf "\033[1;33m⚠\033[0m %s\n" "$1"; }
 err()   { printf "\033[1;31m✗\033[0m %s\n" "$1" >&2; }
 die()   { err "$1"; exit 1; }
 
-# Read a value from ponko.yaml (flat YAML only — key: value or key: "value")
+# Read a value from ponko.yaml (flat key: value format, all keys globally unique)
 yaml_get() {
     local key="$1"
-    grep -E "^[[:space:]]*${key}:" "$CONFIG_FILE" 2>/dev/null \
+    grep -E "^${key}:" "$CONFIG_FILE" 2>/dev/null \
         | head -1 \
         | sed 's/^[^:]*:[[:space:]]*//' \
         | sed 's/^"//' \
@@ -36,8 +36,8 @@ yaml_get() {
 yaml_set() {
     local key="$1"
     local value="$2"
-    if grep -qE "^[[:space:]]*${key}:" "$CONFIG_FILE" 2>/dev/null; then
-        sed -i '' "s|^\([[:space:]]*${key}:\).*|\1 \"${value}\"|" "$CONFIG_FILE"
+    if grep -qE "^${key}:" "$CONFIG_FILE" 2>/dev/null; then
+        sed -i '' "s|^\(${key}:\).*|\1 \"${value}\"|" "$CONFIG_FILE"
     fi
 }
 
@@ -70,6 +70,59 @@ prompt_yn() {
     read -r answer
     answer="${answer:-$default}"
     [[ "$answer" =~ ^[Yy] ]]
+}
+
+# Load all config values into variables. Called by both deploy paths.
+load_config() {
+    CFG_BOT_NAME=$(yaml_get "bot_name")
+    CFG_TIMEZONE=$(yaml_get "bot_timezone")
+    CFG_SYSTEM_PROMPT=$(yaml_get "bot_system_prompt")
+    CFG_BOT_TOKEN=$(yaml_get "slack_bot_token")
+    CFG_SIGNING_SECRET=$(yaml_get "slack_signing_secret")
+    CFG_BOT_USER_ID=$(yaml_get "slack_bot_user_id")
+    CFG_ANTHROPIC_KEY=$(yaml_get "anthropic_api_key")
+    CFG_PLATFORM=$(yaml_get "deploy_platform")
+    CFG_APP_NAME=$(yaml_get "deploy_app_name")
+    CFG_REGION=$(yaml_get "deploy_region")
+    CFG_URL=$(yaml_get "deploy_url")
+    CFG_API_KEY=$(yaml_get "deploy_api_key")
+    CFG_COOKIE_KEY=$(yaml_get "deploy_cookie_signing_key")
+    CFG_WORKER_CONCURRENCY=$(yaml_get "deploy_worker_concurrency")
+    CFG_DASHBOARD_CLIENT_ID=$(yaml_get "dashboard_slack_client_id")
+    CFG_DASHBOARD_CLIENT_SECRET=$(yaml_get "dashboard_slack_client_secret")
+    CFG_DASHBOARD_TEAM_ID=$(yaml_get "dashboard_slack_team_id")
+    CFG_MCP_URLS=$(yaml_get "mcp_server_urls")
+    CFG_MCP_KEY=$(yaml_get "mcp_access_key")
+    CFG_GITHUB_URL=$(yaml_get "github_mcp_url")
+    CFG_GITHUB_PAT=$(yaml_get "github_pat")
+    CFG_LINEAR_URL=$(yaml_get "linear_mcp_url")
+    CFG_LINEAR_TOKEN=$(yaml_get "linear_access_token")
+    CFG_LINEAR_TOKEN_URL=$(yaml_get "linear_token_url")
+    CFG_LINEAR_CLIENT_ID=$(yaml_get "linear_client_id")
+    CFG_LINEAR_CLIENT_SECRET=$(yaml_get "linear_client_secret")
+    CFG_LINEAR_REFRESH=$(yaml_get "linear_refresh_token")
+    CFG_OTEL_ENDPOINT=$(yaml_get "otel_endpoint")
+    CFG_OTEL_EXPORTER=$(yaml_get "otel_exporter")
+}
+
+# Add a secret to the secrets array if the value is non-empty.
+# Usage: add_secret "ENV_VAR" "$value"
+add_secret() {
+    local env_var="$1"
+    local value="$2"
+    if [ -n "$value" ]; then
+        SECRETS+=("${env_var}=${value}")
+    fi
+}
+
+# Add a line to the .env file if the value is non-empty.
+# Usage: add_env "ENV_VAR" "$value"
+add_env() {
+    local env_var="$1"
+    local value="$2"
+    if [ -n "$value" ]; then
+        echo "${env_var}=${value}" >> "$ENV_FILE"
+    fi
 }
 
 # ── Prerequisites ─────────────────────────────────────
@@ -139,7 +192,7 @@ interactive_setup() {
         warn "ponko.yaml already exists — updating values in place"
     fi
 
-    yaml_set "platform" "$platform"
+    yaml_set "deploy_platform" "$platform"
 
     # Slack setup
     echo ""
@@ -155,17 +208,17 @@ interactive_setup() {
     local bot_token
     bot_token=$(prompt_value "Slack Bot Token (xoxb-...)")
     [ -z "$bot_token" ] && die "Bot token is required"
-    yaml_set "bot_token" "$bot_token"
+    yaml_set "slack_bot_token" "$bot_token"
 
     local signing_secret
     signing_secret=$(prompt_value "Slack Signing Secret")
     [ -z "$signing_secret" ] && die "Signing secret is required"
-    yaml_set "signing_secret" "$signing_secret"
+    yaml_set "slack_signing_secret" "$signing_secret"
 
     local bot_user_id
     bot_user_id=$(prompt_value "Slack Bot User ID (U...)")
     [ -z "$bot_user_id" ] && die "Bot user ID is required"
-    yaml_set "bot_user_id" "$bot_user_id"
+    yaml_set "slack_bot_user_id" "$bot_user_id"
 
     # Anthropic
     echo ""
@@ -180,27 +233,27 @@ interactive_setup() {
     info "Step 3: Bot settings"
     local bot_name
     bot_name=$(prompt_value "Bot name" "Ponko")
-    yaml_set "name" "$bot_name"
+    yaml_set "bot_name" "$bot_name"
 
     local timezone
     timezone=$(prompt_value "Timezone" "America/Los_Angeles")
-    yaml_set "timezone" "$timezone"
+    yaml_set "bot_timezone" "$timezone"
 
     local system_prompt
     system_prompt=$(prompt_value "System prompt (blank for default)" "")
     if [ -n "$system_prompt" ]; then
-        yaml_set "system_prompt" "$system_prompt"
+        yaml_set "bot_system_prompt" "$system_prompt"
     fi
 
     # Auto-generate secrets
     local api_key
     api_key=$(openssl rand -hex 32)
-    yaml_set "api_key" "$api_key"
+    yaml_set "deploy_api_key" "$api_key"
     ok "Generated API key"
 
     local cookie_key
     cookie_key=$(openssl rand -hex 32)
-    yaml_set "cookie_signing_key" "$cookie_key"
+    yaml_set "deploy_cookie_signing_key" "$cookie_key"
     ok "Generated cookie signing key"
 
     # Optional: Dashboard OAuth
@@ -208,15 +261,15 @@ interactive_setup() {
     if prompt_yn "Set up dashboard OAuth? (allows Slack login to admin UI)"; then
         local client_id
         client_id=$(prompt_value "Slack Client ID")
-        yaml_set "slack_client_id" "$client_id"
+        yaml_set "dashboard_slack_client_id" "$client_id"
 
         local client_secret
         client_secret=$(prompt_value "Slack Client Secret")
-        yaml_set "slack_client_secret" "$client_secret"
+        yaml_set "dashboard_slack_client_secret" "$client_secret"
 
         local team_id
         team_id=$(prompt_value "Slack Team ID (T...)")
-        yaml_set "slack_team_id" "$team_id"
+        yaml_set "dashboard_slack_team_id" "$team_id"
     fi
 
     # Optional: MCP
@@ -224,12 +277,12 @@ interactive_setup() {
     if prompt_yn "Configure MCP tool servers?"; then
         local mcp_urls
         mcp_urls=$(prompt_value "MCP Server URLs (comma-separated)")
-        yaml_set "server_urls" "$mcp_urls"
+        yaml_set "mcp_server_urls" "$mcp_urls"
 
         local mcp_key
         mcp_key=$(prompt_value "MCP Access Key (blank if none)" "")
         if [ -n "$mcp_key" ]; then
-            yaml_set "access_key" "$mcp_key"
+            yaml_set "mcp_access_key" "$mcp_key"
         fi
     fi
 
@@ -238,11 +291,11 @@ interactive_setup() {
     if prompt_yn "Configure GitHub MCP integration?"; then
         local github_url
         github_url=$(prompt_value "GitHub MCP server URL")
-        yaml_set "mcp_url" "$github_url"
+        yaml_set "github_mcp_url" "$github_url"
 
         local github_pat
         github_pat=$(prompt_value "GitHub Personal Access Token")
-        yaml_set "pat" "$github_pat"
+        yaml_set "github_pat" "$github_pat"
     fi
 
     # Optional: Linear MCP
@@ -250,28 +303,27 @@ interactive_setup() {
     if prompt_yn "Configure Linear MCP integration?"; then
         local linear_url
         linear_url=$(prompt_value "Linear MCP server URL")
-        # Use a unique grep match — linear section has its own mcp_url
-        sed -i '' "/^# ── Linear/,/^# ──/{s|^\([[:space:]]*mcp_url:\).*|\1 \"${linear_url}\"|;}" "$CONFIG_FILE"
+        yaml_set "linear_mcp_url" "$linear_url"
 
         local linear_token
         linear_token=$(prompt_value "Linear access token")
-        yaml_set "access_token" "$linear_token"
+        yaml_set "linear_access_token" "$linear_token"
 
         local linear_token_url
         linear_token_url=$(prompt_value "Linear OAuth token URL")
-        yaml_set "token_url" "$linear_token_url"
+        yaml_set "linear_token_url" "$linear_token_url"
 
         local linear_client_id
         linear_client_id=$(prompt_value "Linear OAuth client ID")
-        yaml_set "client_id" "$linear_client_id"
+        yaml_set "linear_client_id" "$linear_client_id"
 
         local linear_client_secret
         linear_client_secret=$(prompt_value "Linear OAuth client secret")
-        yaml_set "client_secret" "$linear_client_secret"
+        yaml_set "linear_client_secret" "$linear_client_secret"
 
         local linear_refresh
         linear_refresh=$(prompt_value "Linear OAuth refresh token")
-        yaml_set "refresh_token" "$linear_refresh"
+        yaml_set "linear_refresh_token" "$linear_refresh"
     fi
 
     ok "Config saved to ponko.yaml"
@@ -290,29 +342,31 @@ interactive_setup() {
 deploy_fly() {
     info "Deploying to Fly.io..."
 
-    local app_name
-    app_name=$(yaml_get "app_name")
+    load_config
+
+    local app_name="$CFG_APP_NAME"
     if [ -z "$app_name" ]; then
         local random_suffix
         random_suffix=$(openssl rand -hex 2)
         app_name=$(prompt_value "App name" "ponko-${random_suffix}")
-        yaml_set "app_name" "$app_name"
+        yaml_set "deploy_app_name" "$app_name"
     fi
 
-    local region
-    region=$(yaml_get "region")
-    region="${region:-iad}"
+    local region="${CFG_REGION:-iad}"
 
-    local dashboard_url
-    dashboard_url=$(yaml_get "url")
+    local dashboard_url="$CFG_URL"
     if [ -z "$dashboard_url" ]; then
         dashboard_url="https://${app_name}.fly.dev"
-        yaml_set "url" "$dashboard_url"
+        yaml_set "deploy_url" "$dashboard_url"
     fi
+
+    # Cache fly apps list (one API call instead of two)
+    local fly_apps
+    fly_apps=$(fly apps list 2>/dev/null || true)
 
     # Create app
     info "Creating Fly.io app: $app_name"
-    if fly apps list 2>/dev/null | grep -q "$app_name"; then
+    if echo "$fly_apps" | grep -q "$app_name"; then
         warn "App $app_name already exists, skipping creation"
     else
         fly apps create "$app_name" --machines
@@ -322,7 +376,7 @@ deploy_fly() {
     # Create and attach Postgres
     local db_name="${app_name}-db"
     info "Creating Postgres: $db_name"
-    if fly apps list 2>/dev/null | grep -q "$db_name"; then
+    if echo "$fly_apps" | grep -q "$db_name"; then
         warn "Database $db_name already exists, skipping creation"
     else
         fly postgres create --name "$db_name" --region "$region" --initial-cluster-size 1 --vm-size shared-cpu-1x --volume-size 1
@@ -332,80 +386,48 @@ deploy_fly() {
     info "Attaching database..."
     fly postgres attach "$db_name" --app "$app_name" 2>/dev/null || warn "Database may already be attached"
 
-    # Set secrets
+    # Build secrets array (no eval needed)
     info "Setting secrets..."
-    local bot_token signing_secret bot_user_id anthropic_key api_key cookie_key
-    local bot_name timezone worker_concurrency system_prompt
-    bot_token=$(yaml_get "bot_token")
-    signing_secret=$(yaml_get "signing_secret")
-    bot_user_id=$(yaml_get "bot_user_id")
-    anthropic_key=$(yaml_get "anthropic_api_key")
-    api_key=$(yaml_get "api_key")
-    cookie_key=$(yaml_get "cookie_signing_key")
-    bot_name=$(yaml_get "name")
-    timezone=$(yaml_get "timezone")
-    worker_concurrency=$(yaml_get "worker_concurrency")
-    system_prompt=$(yaml_get "system_prompt")
+    local SECRETS=()
+    add_secret "ANTHROPIC_API_KEY" "$CFG_ANTHROPIC_KEY"
+    add_secret "SLACK_BOT_TOKEN" "$CFG_BOT_TOKEN"
+    add_secret "SLACK_SIGNING_SECRET" "$CFG_SIGNING_SECRET"
+    add_secret "SLACK_BOT_USER_ID" "$CFG_BOT_USER_ID"
+    add_secret "PONKO_API_KEY" "$CFG_API_KEY"
+    add_secret "COOKIE_SIGNING_KEY" "$CFG_COOKIE_KEY"
+    add_secret "DASHBOARD_URL" "$dashboard_url"
 
-    local secrets_cmd="fly secrets set -a $app_name"
-    secrets_cmd+=" ANTHROPIC_API_KEY=$anthropic_key"
-    secrets_cmd+=" SLACK_BOT_TOKEN=$bot_token"
-    secrets_cmd+=" SLACK_SIGNING_SECRET=$signing_secret"
-    secrets_cmd+=" SLACK_BOT_USER_ID=$bot_user_id"
-    secrets_cmd+=" PONKO_API_KEY=$api_key"
-    secrets_cmd+=" COOKIE_SIGNING_KEY=$cookie_key"
-    secrets_cmd+=" DASHBOARD_URL=$dashboard_url"
-    [ -n "$bot_name" ] && [ "$bot_name" != "Ponko" ] && secrets_cmd+=" BOT_NAME=$bot_name"
-    [ -n "$timezone" ] && [ "$timezone" != "America/Los_Angeles" ] && secrets_cmd+=" TIMEZONE=$timezone"
-    [ -n "$worker_concurrency" ] && secrets_cmd+=" WORKER_CONCURRENCY=$worker_concurrency"
-    [ -n "$system_prompt" ] && secrets_cmd+=" SYSTEM_PROMPT=$system_prompt"
+    [ -n "$CFG_BOT_NAME" ] && [ "$CFG_BOT_NAME" != "Ponko" ] && add_secret "BOT_NAME" "$CFG_BOT_NAME"
+    [ -n "$CFG_TIMEZONE" ] && [ "$CFG_TIMEZONE" != "America/Los_Angeles" ] && add_secret "TIMEZONE" "$CFG_TIMEZONE"
+    add_secret "WORKER_CONCURRENCY" "$CFG_WORKER_CONCURRENCY"
+    add_secret "SYSTEM_PROMPT" "$CFG_SYSTEM_PROMPT"
 
-    # Optional: Dashboard OAuth
-    local client_id client_secret team_id
-    client_id=$(yaml_get "slack_client_id")
-    client_secret=$(yaml_get "slack_client_secret")
-    team_id=$(yaml_get "slack_team_id")
-    [ -n "$client_id" ] && secrets_cmd+=" SLACK_CLIENT_ID=$client_id"
-    [ -n "$client_secret" ] && secrets_cmd+=" SLACK_CLIENT_SECRET=$client_secret"
-    [ -n "$team_id" ] && secrets_cmd+=" SLACK_TEAM_ID=$team_id"
+    # Dashboard OAuth
+    add_secret "SLACK_CLIENT_ID" "$CFG_DASHBOARD_CLIENT_ID"
+    add_secret "SLACK_CLIENT_SECRET" "$CFG_DASHBOARD_CLIENT_SECRET"
+    add_secret "SLACK_TEAM_ID" "$CFG_DASHBOARD_TEAM_ID"
 
-    # Optional: MCP
-    local mcp_urls mcp_key
-    mcp_urls=$(yaml_get "server_urls")
-    mcp_key=$(yaml_get "access_key")
-    [ -n "$mcp_urls" ] && [ "$mcp_urls" != "[]" ] && secrets_cmd+=" MCP_SERVER_URLS=$mcp_urls"
-    [ -n "$mcp_key" ] && secrets_cmd+=" MCP_ACCESS_KEY=$mcp_key"
+    # MCP
+    [ "$CFG_MCP_URLS" != "[]" ] && add_secret "MCP_SERVER_URLS" "$CFG_MCP_URLS"
+    add_secret "MCP_ACCESS_KEY" "$CFG_MCP_KEY"
 
-    # Optional: GitHub MCP
-    local github_url github_pat
-    github_url=$(yaml_get "mcp_url")
-    github_pat=$(yaml_get "pat")
-    [ -n "$github_url" ] && secrets_cmd+=" GITHUB_MCP_URL=$github_url"
-    [ -n "$github_pat" ] && secrets_cmd+=" GITHUB_PAT=$github_pat"
+    # GitHub MCP
+    add_secret "GITHUB_MCP_URL" "$CFG_GITHUB_URL"
+    add_secret "GITHUB_PAT" "$CFG_GITHUB_PAT"
 
-    # Optional: Linear MCP
-    local linear_url linear_token linear_token_url linear_client_id linear_client_secret linear_refresh
-    linear_url=$(yaml_get "mcp_url")
-    linear_token=$(yaml_get "access_token")
-    linear_token_url=$(yaml_get "token_url")
-    linear_client_id=$(yaml_get "client_id")
-    linear_client_secret=$(yaml_get "client_secret")
-    linear_refresh=$(yaml_get "refresh_token")
-    [ -n "$linear_url" ] && secrets_cmd+=" LINEAR_MCP_URL=$linear_url"
-    [ -n "$linear_token" ] && secrets_cmd+=" LINEAR_MCP_ACCESS_TOKEN=$linear_token"
-    [ -n "$linear_token_url" ] && secrets_cmd+=" LINEAR_MCP_TOKEN_URL=$linear_token_url"
-    [ -n "$linear_client_id" ] && secrets_cmd+=" LINEAR_MCP_CLIENT_ID=$linear_client_id"
-    [ -n "$linear_client_secret" ] && secrets_cmd+=" LINEAR_MCP_CLIENT_SECRET=$linear_client_secret"
-    [ -n "$linear_refresh" ] && secrets_cmd+=" LINEAR_MCP_REFRESH_TOKEN=$linear_refresh"
+    # Linear MCP
+    add_secret "LINEAR_MCP_URL" "$CFG_LINEAR_URL"
+    add_secret "LINEAR_MCP_ACCESS_TOKEN" "$CFG_LINEAR_TOKEN"
+    add_secret "LINEAR_MCP_TOKEN_URL" "$CFG_LINEAR_TOKEN_URL"
+    add_secret "LINEAR_MCP_CLIENT_ID" "$CFG_LINEAR_CLIENT_ID"
+    add_secret "LINEAR_MCP_CLIENT_SECRET" "$CFG_LINEAR_CLIENT_SECRET"
+    add_secret "LINEAR_MCP_REFRESH_TOKEN" "$CFG_LINEAR_REFRESH"
 
-    # Optional: Observability
-    local otel_endpoint otel_exporter
-    otel_endpoint=$(yaml_get "otel_endpoint")
-    otel_exporter=$(yaml_get "otel_exporter")
-    [ -n "$otel_endpoint" ] && secrets_cmd+=" OTEL_EXPORTER_OTLP_ENDPOINT=$otel_endpoint"
-    [ -n "$otel_exporter" ] && secrets_cmd+=" OTEL_EXPORTER=$otel_exporter"
+    # Observability
+    add_secret "OTEL_EXPORTER_OTLP_ENDPOINT" "$CFG_OTEL_ENDPOINT"
+    add_secret "OTEL_EXPORTER" "$CFG_OTEL_EXPORTER"
 
-    eval "$secrets_cmd"
+    fly secrets set -a "$app_name" "${SECRETS[@]}"
     ok "Secrets set"
 
     # Update fly.toml
@@ -447,12 +469,12 @@ deploy_fly() {
     echo "     ${dashboard_url}/slack/events"
     echo ""
     echo "  2. Invite the bot to a channel:"
-    echo "     /invite @${bot_name:-Ponko}"
+    echo "     /invite @${CFG_BOT_NAME:-Ponko}"
     echo ""
     echo "  3. Say hello:"
-    echo "     @${bot_name:-Ponko} hello"
+    echo "     @${CFG_BOT_NAME:-Ponko} hello"
     echo ""
-    if [ -n "$client_id" ]; then
+    if [ -n "$CFG_DASHBOARD_CLIENT_ID" ]; then
         echo "  4. Dashboard: ${dashboard_url}"
         echo "     Set OAuth redirect URL to: ${dashboard_url}/api/auth/slack/callback"
         echo ""
@@ -464,83 +486,49 @@ deploy_fly() {
 deploy_docker() {
     info "Generating .env for Docker..."
 
-    local env_file="$PROJECT_DIR/.env"
-    local bot_token signing_secret bot_user_id anthropic_key api_key cookie_key
-    local bot_name timezone worker_concurrency dashboard_url system_prompt
-    bot_token=$(yaml_get "bot_token")
-    signing_secret=$(yaml_get "signing_secret")
-    bot_user_id=$(yaml_get "bot_user_id")
-    anthropic_key=$(yaml_get "anthropic_api_key")
-    api_key=$(yaml_get "api_key")
-    cookie_key=$(yaml_get "cookie_signing_key")
-    bot_name=$(yaml_get "name")
-    timezone=$(yaml_get "timezone")
-    worker_concurrency=$(yaml_get "worker_concurrency")
-    dashboard_url=$(yaml_get "url")
-    system_prompt=$(yaml_get "system_prompt")
+    load_config
 
-    cat > "$env_file" <<EOF
+    ENV_FILE="$PROJECT_DIR/.env"
+    cat > "$ENV_FILE" <<EOF
 DATABASE_URL=postgres://agent:agent@db:5432/agent?sslmode=disable
-ANTHROPIC_API_KEY=${anthropic_key}
-SLACK_BOT_TOKEN=${bot_token}
-SLACK_SIGNING_SECRET=${signing_secret}
-SLACK_BOT_USER_ID=${bot_user_id}
-PONKO_API_KEY=${api_key}
-COOKIE_SIGNING_KEY=${cookie_key}
-BOT_NAME=${bot_name:-Ponko}
-TIMEZONE=${timezone:-America/Los_Angeles}
-WORKER_CONCURRENCY=${worker_concurrency:-10}
+ANTHROPIC_API_KEY=${CFG_ANTHROPIC_KEY}
+SLACK_BOT_TOKEN=${CFG_BOT_TOKEN}
+SLACK_SIGNING_SECRET=${CFG_SIGNING_SECRET}
+SLACK_BOT_USER_ID=${CFG_BOT_USER_ID}
+PONKO_API_KEY=${CFG_API_KEY}
+COOKIE_SIGNING_KEY=${CFG_COOKIE_KEY}
+BOT_NAME=${CFG_BOT_NAME:-Ponko}
+TIMEZONE=${CFG_TIMEZONE:-America/Los_Angeles}
+WORKER_CONCURRENCY=${CFG_WORKER_CONCURRENCY:-10}
 EOF
 
-    [ -n "$system_prompt" ] && echo "SYSTEM_PROMPT=${system_prompt}" >> "$env_file"
-    [ -n "$dashboard_url" ] && echo "DASHBOARD_URL=${dashboard_url}" >> "$env_file"
+    add_env "SYSTEM_PROMPT" "$CFG_SYSTEM_PROMPT"
+    add_env "DASHBOARD_URL" "$CFG_URL"
 
     # Dashboard OAuth
-    local client_id client_secret team_id
-    client_id=$(yaml_get "slack_client_id")
-    client_secret=$(yaml_get "slack_client_secret")
-    team_id=$(yaml_get "slack_team_id")
-    [ -n "$client_id" ] && echo "SLACK_CLIENT_ID=${client_id}" >> "$env_file"
-    [ -n "$client_secret" ] && echo "SLACK_CLIENT_SECRET=${client_secret}" >> "$env_file"
-    [ -n "$team_id" ] && echo "SLACK_TEAM_ID=${team_id}" >> "$env_file"
+    add_env "SLACK_CLIENT_ID" "$CFG_DASHBOARD_CLIENT_ID"
+    add_env "SLACK_CLIENT_SECRET" "$CFG_DASHBOARD_CLIENT_SECRET"
+    add_env "SLACK_TEAM_ID" "$CFG_DASHBOARD_TEAM_ID"
 
     # MCP
-    local mcp_urls mcp_key
-    mcp_urls=$(yaml_get "server_urls")
-    mcp_key=$(yaml_get "access_key")
-    [ -n "$mcp_urls" ] && [ "$mcp_urls" != "[]" ] && echo "MCP_SERVER_URLS=${mcp_urls}" >> "$env_file"
-    [ -n "$mcp_key" ] && echo "MCP_ACCESS_KEY=${mcp_key}" >> "$env_file"
+    [ "$CFG_MCP_URLS" != "[]" ] && add_env "MCP_SERVER_URLS" "$CFG_MCP_URLS"
+    add_env "MCP_ACCESS_KEY" "$CFG_MCP_KEY"
 
     # GitHub MCP
-    local github_url github_pat
-    github_url=$(yaml_get "mcp_url")
-    github_pat=$(yaml_get "pat")
-    [ -n "$github_url" ] && echo "GITHUB_MCP_URL=${github_url}" >> "$env_file"
-    [ -n "$github_pat" ] && echo "GITHUB_PAT=${github_pat}" >> "$env_file"
+    add_env "GITHUB_MCP_URL" "$CFG_GITHUB_URL"
+    add_env "GITHUB_PAT" "$CFG_GITHUB_PAT"
 
     # Linear MCP
-    local linear_token linear_token_url linear_client_id linear_client_secret linear_refresh
-    linear_token=$(yaml_get "access_token")
-    linear_token_url=$(yaml_get "token_url")
-    linear_client_id=$(yaml_get "client_id")
-    linear_client_secret=$(yaml_get "client_secret")
-    linear_refresh=$(yaml_get "refresh_token")
-    # linear mcp_url conflicts with github mcp_url in yaml_get — read from Linear section
-    local linear_url
-    linear_url=$(sed -n '/^# ── Linear/,/^# ──/{/mcp_url:/p;}' "$CONFIG_FILE" 2>/dev/null | sed 's/^[^:]*:[[:space:]]*//' | sed 's/^"//' | sed 's/"$//')
-    [ -n "$linear_url" ] && echo "LINEAR_MCP_URL=${linear_url}" >> "$env_file"
-    [ -n "$linear_token" ] && echo "LINEAR_MCP_ACCESS_TOKEN=${linear_token}" >> "$env_file"
-    [ -n "$linear_token_url" ] && echo "LINEAR_MCP_TOKEN_URL=${linear_token_url}" >> "$env_file"
-    [ -n "$linear_client_id" ] && echo "LINEAR_MCP_CLIENT_ID=${linear_client_id}" >> "$env_file"
-    [ -n "$linear_client_secret" ] && echo "LINEAR_MCP_CLIENT_SECRET=${linear_client_secret}" >> "$env_file"
-    [ -n "$linear_refresh" ] && echo "LINEAR_MCP_REFRESH_TOKEN=${linear_refresh}" >> "$env_file"
+    add_env "LINEAR_MCP_URL" "$CFG_LINEAR_URL"
+    add_env "LINEAR_MCP_ACCESS_TOKEN" "$CFG_LINEAR_TOKEN"
+    add_env "LINEAR_MCP_TOKEN_URL" "$CFG_LINEAR_TOKEN_URL"
+    add_env "LINEAR_MCP_CLIENT_ID" "$CFG_LINEAR_CLIENT_ID"
+    add_env "LINEAR_MCP_CLIENT_SECRET" "$CFG_LINEAR_CLIENT_SECRET"
+    add_env "LINEAR_MCP_REFRESH_TOKEN" "$CFG_LINEAR_REFRESH"
 
     # Observability
-    local otel_endpoint otel_exporter
-    otel_endpoint=$(yaml_get "otel_endpoint")
-    otel_exporter=$(yaml_get "otel_exporter")
-    [ -n "$otel_endpoint" ] && echo "OTEL_EXPORTER_OTLP_ENDPOINT=${otel_endpoint}" >> "$env_file"
-    [ -n "$otel_exporter" ] && echo "OTEL_EXPORTER=${otel_exporter}" >> "$env_file"
+    add_env "OTEL_EXPORTER_OTLP_ENDPOINT" "$CFG_OTEL_ENDPOINT"
+    add_env "OTEL_EXPORTER" "$CFG_OTEL_EXPORTER"
 
     ok "Generated .env"
 
@@ -557,10 +545,9 @@ EOF
 deploy_mode() {
     [ ! -f "$CONFIG_FILE" ] && die "ponko.yaml not found. Run ./scripts/setup.sh first"
 
-    local platform
-    platform=$(yaml_get "platform")
+    load_config
 
-    case "$platform" in
+    case "$CFG_PLATFORM" in
         fly)
             check_fly_auth
             deploy_fly
@@ -569,7 +556,7 @@ deploy_mode() {
             deploy_docker
             ;;
         *)
-            die "Unknown platform: $platform. Set deploy.platform to 'fly' or 'docker' in ponko.yaml"
+            die "Unknown platform: $CFG_PLATFORM. Set deploy_platform to 'fly' or 'docker' in ponko.yaml"
             ;;
     esac
 }
@@ -591,7 +578,7 @@ validate_mode() {
     ok "ponko.yaml exists"
 
     # Check required values
-    local required_keys="bot_token signing_secret bot_user_id anthropic_api_key"
+    local required_keys="slack_bot_token slack_signing_secret slack_bot_user_id anthropic_api_key"
     for key in $required_keys; do
         local val
         val=$(yaml_get "$key")
@@ -605,7 +592,7 @@ validate_mode() {
 
     # Check health endpoint
     local url
-    url=$(yaml_get "url")
+    url=$(yaml_get "deploy_url")
     if [ -n "$url" ]; then
         info "Checking health at $url..."
         if curl -sf "${url}/health" >/dev/null 2>&1; then
