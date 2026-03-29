@@ -14,8 +14,8 @@ func collectRequired(cfg *Config) error {
 			huh.NewSelect[string]().
 				Title("Deployment platform").
 				Options(
-					huh.NewOption("Fly.io (recommended)", "fly"),
-					huh.NewOption("Docker (local/self-hosted)", "docker"),
+					huh.NewOption("Fly.io (recommended)", platformFly),
+					huh.NewOption("Docker (local/self-hosted)", platformDocker),
 				).
 				Value(&cfg.Deploy.Platform),
 			huh.NewInput().

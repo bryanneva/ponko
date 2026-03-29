@@ -77,6 +77,11 @@ type ObservabilityConfig struct {
 	OTELExporter string `yaml:"otel_exporter"`
 }
 
+const (
+	platformFly    = "fly"
+	platformDocker = "docker"
+)
+
 func loadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -159,7 +164,7 @@ func defaultConfig() *Config {
 			Timezone: "America/Los_Angeles",
 		},
 		Deploy: DeployConfig{
-			Platform:          "fly",
+			Platform:          platformFly,
 			Region:            "iad",
 			WorkerConcurrency: 10,
 		},

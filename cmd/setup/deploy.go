@@ -56,9 +56,18 @@ func deployFly(cfg *Config) error {
 
 	// Cache app list for existence checks
 	appList, _ := cmdOutput("fly", "apps", "list")
+	appExists := func(name string) bool {
+		for _, line := range strings.Split(appList, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) > 0 && fields[0] == name {
+				return true
+			}
+		}
+		return false
+	}
 
 	// Create app
-	if strings.Contains(appList, appName) {
+	if appExists(appName) {
 		fmt.Printf("App %s already exists, skipping creation.\n", appName)
 	} else {
 		fmt.Printf("Creating app: %s\n", appName)
@@ -69,7 +78,7 @@ func deployFly(cfg *Config) error {
 
 	// Create Postgres
 	dbName := appName + "-db"
-	if strings.Contains(appList, dbName) {
+	if appExists(dbName) {
 		fmt.Printf("Database %s already exists, skipping creation.\n", dbName)
 	} else {
 		fmt.Printf("Creating Postgres: %s\n", dbName)
@@ -137,19 +146,14 @@ func deployFly(cfg *Config) error {
 		time.Sleep(2 * time.Second)
 	}
 
-	// Print next steps
-	botName := cfg.Bot.Name
-	if botName == "" {
-		botName = "Ponko"
-	}
 	fmt.Println("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println("  Setup Complete!")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 	fmt.Println()
 	fmt.Println("Next steps:")
 	fmt.Printf("  1. Set your Slack Event Subscriptions URL to:\n     %s/slack/events\n\n", cfg.Deploy.URL)
-	fmt.Printf("  2. Invite the bot to a channel:\n     /invite @%s\n\n", botName)
-	fmt.Printf("  3. Say hello:\n     @%s hello\n\n", botName)
+	fmt.Printf("  2. Invite the bot to a channel:\n     /invite @%s\n\n", cfg.Bot.Name)
+	fmt.Printf("  3. Say hello:\n     @%s hello\n\n", cfg.Bot.Name)
 	if cfg.Dashboard.SlackClientID != "" {
 		fmt.Printf("  4. Dashboard: %s\n", cfg.Deploy.URL)
 		fmt.Printf("     Set OAuth redirect URL to: %s/api/auth/slack/callback\n\n", cfg.Deploy.URL)
@@ -170,23 +174,9 @@ func deployDocker(cfg *Config) error {
 	fmt.Fprintf(&b, "PONKO_API_KEY=%s\n", cfg.Deploy.APIKey)
 	fmt.Fprintf(&b, "COOKIE_SIGNING_KEY=%s\n", cfg.Deploy.CookieSigningKey)
 
-	botName := cfg.Bot.Name
-	if botName == "" {
-		botName = "Ponko"
-	}
-	fmt.Fprintf(&b, "BOT_NAME=%s\n", botName)
-
-	tz := cfg.Bot.Timezone
-	if tz == "" {
-		tz = "America/Los_Angeles"
-	}
-	fmt.Fprintf(&b, "TIMEZONE=%s\n", tz)
-
-	wc := cfg.Deploy.WorkerConcurrency
-	if wc == 0 {
-		wc = 10
-	}
-	fmt.Fprintf(&b, "WORKER_CONCURRENCY=%d\n", wc)
+	fmt.Fprintf(&b, "BOT_NAME=%s\n", cfg.Bot.Name)
+	fmt.Fprintf(&b, "TIMEZONE=%s\n", cfg.Bot.Timezone)
+	fmt.Fprintf(&b, "WORKER_CONCURRENCY=%d\n", cfg.Deploy.WorkerConcurrency)
 
 	writeEnvIf(&b, "SYSTEM_PROMPT", cfg.Bot.SystemPrompt)
 	writeEnvIf(&b, "DASHBOARD_URL", cfg.Deploy.URL)
@@ -205,6 +195,10 @@ func deployDocker(cfg *Config) error {
 	writeEnvIf(&b, "LINEAR_MCP_REFRESH_TOKEN", cfg.Linear.RefreshToken)
 	writeEnvIf(&b, "OTEL_EXPORTER_OTLP_ENDPOINT", cfg.Observability.OTELEndpoint)
 	writeEnvIf(&b, "OTEL_EXPORTER", cfg.Observability.OTELExporter)
+
+	if err := saveConfig(cfg, configPath); err != nil {
+		fmt.Printf("Warning: could not save config: %v\n", err)
+	}
 
 	if err := os.WriteFile(".env", []byte(b.String()), 0600); err != nil {
 		return fmt.Errorf("writing .env: %w", err)
@@ -269,11 +263,11 @@ func buildSecrets(cfg *Config) []string {
 }
 
 func validate(cfg *Config) error {
-	errors := 0
+	failCount := 0
 	check := func(name, value string) {
 		if value == "" {
 			fmt.Printf("  ✗ %s is missing\n", name)
-			errors++
+			failCount++
 		} else {
 			fmt.Printf("  ✓ %s is set\n", name)
 		}
@@ -288,22 +282,24 @@ func validate(cfg *Config) error {
 	if cfg.Deploy.URL != "" {
 		fmt.Printf("\nChecking health at %s...\n", cfg.Deploy.URL)
 		resp, err := http.Get(cfg.Deploy.URL + "/health") //nolint:gosec // URL from user config
-		if err != nil || resp.StatusCode != http.StatusOK {
-			fmt.Printf("  ✗ Health check failed: %s/health\n", cfg.Deploy.URL)
-			errors++
-			if resp != nil {
-				_ = resp.Body.Close()
-			}
+		if err != nil {
+			fmt.Printf("  ✗ Health check failed: %s/health (%v)\n", cfg.Deploy.URL, err)
+			failCount++
 		} else {
 			_ = resp.Body.Close()
-			fmt.Println("  ✓ Health check passed")
+			if resp.StatusCode != http.StatusOK {
+				fmt.Printf("  ✗ Health check failed: %s/health (status %d)\n", cfg.Deploy.URL, resp.StatusCode)
+				failCount++
+			} else {
+				fmt.Println("  ✓ Health check passed")
+			}
 		}
 	} else {
 		fmt.Println("\n  ⚠ No deploy URL set — skipping health check")
 	}
 
-	if errors > 0 {
-		return fmt.Errorf("%d check(s) failed", errors)
+	if failCount > 0 {
+		return fmt.Errorf("%d check(s) failed", failCount)
 	}
 	fmt.Println("\nAll checks passed!")
 	return nil
@@ -331,6 +327,6 @@ func checkCommand(name string) error {
 
 func writeEnvIf(b *strings.Builder, key, value string) {
 	if value != "" {
-		fmt.Fprintf(b, "%s=%s\n", key, value)
+		fmt.Fprintf(b, "%s=\"%s\"\n", key, value)
 	}
 }

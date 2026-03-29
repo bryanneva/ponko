@@ -51,19 +51,7 @@ func runSetup(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if err := saveConfig(cfg, configPath); err != nil {
-		return fmt.Errorf("saving config: %w", err)
-	}
-	fmt.Printf("\nConfig saved to %s\n", configPath)
-
-	switch cfg.Deploy.Platform {
-	case "fly":
-		return deployFly(cfg)
-	case "docker":
-		return deployDocker(cfg)
-	default:
-		return fmt.Errorf("unknown platform: %s", cfg.Deploy.Platform)
-	}
+	return deploy(cfg)
 }
 
 func runDeploy(_ *cobra.Command, _ []string) error {
@@ -72,10 +60,14 @@ func runDeploy(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
+	return deploy(cfg)
+}
+
+func deploy(cfg *Config) error {
 	switch cfg.Deploy.Platform {
-	case "fly":
+	case platformFly:
 		return deployFly(cfg)
-	case "docker":
+	case platformDocker:
 		return deployDocker(cfg)
 	default:
 		return fmt.Errorf("unknown platform: %s", cfg.Deploy.Platform)
