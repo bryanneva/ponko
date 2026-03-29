@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/charmbracelet/huh"
 )
 
 func collectRequired(cfg *Config) error {
-	err := huh.NewForm(
+	// Step 1: Platform and bot name (needed before Slack manifest)
+	if err := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Deployment platform").
@@ -16,9 +18,32 @@ func collectRequired(cfg *Config) error {
 					huh.NewOption("Docker (local/self-hosted)", "docker"),
 				).
 				Value(&cfg.Deploy.Platform),
-		).Title("Platform"),
+			huh.NewInput().
+				Title("Bot Name").
+				Description("Your bot's display name in Slack and prompts").
+				Placeholder("Ponko").
+				Value(&cfg.Bot.Name),
+		).Title("Getting Started"),
+	).WithTheme(huh.ThemeDracula()).Run(); err != nil {
+		return err
+	}
 
-		// Slack Step 1: Create app from manifest
+	// Default bot name if left blank
+	botName := cfg.Bot.Name
+	if botName == "" {
+		botName = "Ponko"
+		cfg.Bot.Name = botName
+	}
+
+	// Write the manifest with the chosen bot name
+	manifestPath := filepath.Join(filepath.Dir(configPath), "slack-app-manifest.json")
+	if err := writeManifest(botName, manifestPath); err != nil {
+		return fmt.Errorf("writing manifest: %w", err)
+	}
+	fmt.Printf("Wrote Slack app manifest for %q to %s\n\n", botName, manifestPath)
+
+	// Steps 2-5: Slack setup using the manifest
+	err := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Step 1: Create a Slack App from Manifest").
@@ -27,10 +52,10 @@ func collectRequired(cfg *Config) error {
 						"2. Choose \"From a manifest\"\n"+
 						"3. Select your workspace\n"+
 						"4. Switch to JSON tab and paste the contents of:\n"+
-						"   slack-app-manifest.json (in the repo root)\n"+
+						"   "+manifestPath+"\n"+
 						"5. Click Create\n\n"+
-						"This sets up all scopes and event subscriptions automatically.\n"+
-						"You'll update the event URL after deploy."),
+						"The manifest pre-configures all scopes and event subscriptions\n"+
+						"with your bot named \""+botName+"\". You'll update the event URL after deploy."),
 			huh.NewConfirm().
 				Title("App created?").
 				Affirmative("Next").
@@ -38,7 +63,6 @@ func collectRequired(cfg *Config) error {
 				Value(new(bool)),
 		).Title("Slack Setup"),
 
-		// Slack Step 2: Install and get bot token
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Step 2: Install App & Get Bot Token").
@@ -54,7 +78,6 @@ func collectRequired(cfg *Config) error {
 				Validate(required("bot token")),
 		).Title("Slack Setup"),
 
-		// Slack Step 3: Signing secret
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Step 3: Get the Signing Secret").
@@ -68,14 +91,13 @@ func collectRequired(cfg *Config) error {
 				Validate(required("signing secret")),
 		).Title("Slack Setup"),
 
-		// Slack Step 4: Bot user ID
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Step 4: Get the Bot User ID").
 				Description(
 					"1. Go to your Slack workspace\n"+
-						"2. Find the bot in any channel or in the Apps section\n"+
-						"3. Click on the bot's name to view its profile\n"+
+						"2. Find "+botName+" in any channel or in the Apps section\n"+
+						"3. Click on "+botName+"'s name to view its profile\n"+
 						"4. Click the ··· menu and select Copy member ID"),
 			huh.NewInput().
 				Title("Bot User ID").
@@ -100,13 +122,8 @@ func collectRequired(cfg *Config) error {
 				Validate(required("Anthropic API key")),
 		).Title("AI"),
 
-		// Bot settings
+		// Remaining bot settings
 		huh.NewGroup(
-			huh.NewInput().
-				Title("Bot Name").
-				Description("Display name in prompts and Slack messages").
-				Placeholder("Ponko").
-				Value(&cfg.Bot.Name),
 			huh.NewInput().
 				Title("Timezone").
 				Description("IANA timezone for scheduled messages").

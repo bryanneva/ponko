@@ -105,6 +105,53 @@ func generateSecret() string {
 	return hex.EncodeToString(b)
 }
 
+func writeManifest(botName, path string) error {
+	manifest := fmt.Sprintf(`{
+  "display_information": {
+    "name": %q,
+    "description": "A self-hosted AI agent that lives in Slack",
+    "background_color": "#1a1a2e"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": %q,
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "reactions:write",
+        "channels:history",
+        "channels:read",
+        "users:read"
+      ],
+      "user": [
+        "identity.basic"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://YOUR-APP.fly.dev/slack/events",
+      "bot_events": [
+        "app_mention"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
+`, botName, botName)
+	return os.WriteFile(path, []byte(manifest), 0644)
+}
+
 func defaultConfig() *Config {
 	return &Config{
 		Bot: BotConfig{
