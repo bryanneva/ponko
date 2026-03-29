@@ -31,6 +31,9 @@ coverage.html
 web/node_modules/
 web/dist/
 
+# Ponko config (contains secrets)
+ponko.yaml
+
 # Ralph
 progress.txt
 /prd.json

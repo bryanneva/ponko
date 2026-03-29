@@ -14,62 +14,67 @@ Ponko is a single Go binary backed by Postgres. Deploy it, connect it to Slack, 
 - **Supports per-channel configuration** — different prompts, tools, and behavior per channel
 - **Includes a management dashboard** for channel config and job monitoring
 
+## Prerequisites
+
+You'll need these before you start:
+
+- **Slack workspace** where you can create apps — [create a Slack app](https://api.slack.com/apps) and follow the [Slack setup guide](docs/slack-setup.md) to get your bot token, signing secret, and bot user ID
+- **Anthropic API key** — [console.anthropic.com](https://console.anthropic.com)
+- **Fly.io account + CLI** — [fly.io](https://fly.io), install with `curl -L https://fly.io/install.sh | sh`
+
 ## Quick Start
 
-### Prerequisites
+### Option A: Setup script (~10 min)
 
-- Go 1.25+ (or use the Docker image)
-- PostgreSQL
-- A Slack workspace where you can create apps
-- An Anthropic API key
+```bash
+./scripts/setup.sh
+```
 
-### 1. Start the database
+The script walks you through collecting credentials, provisioning Fly.io infrastructure, and deploying. It generates secrets automatically. You'll need to have your Slack app created and your Anthropic API key ready before running it.
+
+### Option B: Manual deploy
+
+```bash
+# 1. Create config from template
+cp ponko.example.yaml ponko.yaml
+# Fill in your Slack and Anthropic credentials
+
+# 2. Provision infrastructure
+fly apps create my-ponko
+fly postgres create --name my-ponko-db --region iad
+fly postgres attach my-ponko-db --app my-ponko
+
+# 3. Set secrets
+fly secrets set -a my-ponko \
+  ANTHROPIC_API_KEY="sk-ant-..." \
+  SLACK_BOT_TOKEN="xoxb-..." \
+  SLACK_SIGNING_SECRET="..." \
+  SLACK_BOT_USER_ID="U..." \
+  PONKO_API_KEY="$(openssl rand -hex 32)" \
+  COOKIE_SIGNING_KEY="$(openssl rand -hex 32)" \
+  DASHBOARD_URL="https://my-ponko.fly.dev"
+
+# 4. Update fly.toml and deploy
+sed -i '' "s/<your-app>/my-ponko/" fly.toml
+fly deploy
+```
+
+After deploying, set your Slack app's Event Subscriptions URL to `https://<your-app>.fly.dev/slack/events`, invite the bot to a channel, and @mention it.
+
+See the full [setup guide](docs/setup.md) for Docker deployment, dashboard OAuth setup, and troubleshooting.
+
+### Local Development
 
 ```bash
 make db-up
-```
-
-### 2. Set environment variables
-
-```bash
 export DATABASE_URL="postgres://agent:agent@localhost:5433/agent_dev?sslmode=disable"
 export ANTHROPIC_API_KEY="sk-ant-..."
 export SLACK_BOT_TOKEN="xoxb-..."
 export SLACK_SIGNING_SECRET="..."
-```
-
-### 3. Run
-
-```bash
 make run
 ```
 
-### 4. Deploy
-
-Ponko ships as a single binary. Deploy it anywhere that runs Go or Docker:
-
-```bash
-# Fly.io
-fly deploy
-
-# Docker
-docker build -t ponko .
-docker run -e DATABASE_URL=... -e ANTHROPIC_API_KEY=... -e SLACK_BOT_TOKEN=... ponko
-```
-
 Database migrations run automatically on startup.
-
-## Slack Bot Setup
-
-1. Create a Slack app at [api.slack.com/apps](https://api.slack.com/apps)
-2. Add bot token scopes: `app_mentions:read`, `chat:write`, `reactions:write`
-3. Enable Event Subscriptions, subscribe to `app_mention`, set the request URL to `https://<your-host>/slack/events`
-4. Install the app to your workspace
-5. Copy the Bot Token (`SLACK_BOT_TOKEN`) and Signing Secret (`SLACK_SIGNING_SECRET`)
-6. Invite the bot to a channel: `/invite @YourBot`
-7. Mention it: `@YourBot what's the weather?`
-
-See the full [Slack setup guide](docs/slack-setup.md) for details on OAuth, dashboard access, and advanced configuration.
 
 ## How It Works
 
@@ -161,15 +166,27 @@ Add these environment variables:
 | `SLACK_SIGNING_SECRET` | Yes | Slack app signing secret |
 | `SLACK_BOT_USER_ID` | Yes | Bot's Slack member ID (prevents self-replies) |
 | `BOT_NAME` | No | Bot's display name for prompts and messages (default: "Ponko") |
+| `SYSTEM_PROMPT` | No | Custom system prompt to define the bot's personality and instructions |
+| `TIMEZONE` | No | IANA timezone for scheduled messages (default: "America/Los_Angeles") |
 | `PONKO_API_KEY` | No | Bearer token for API authentication |
+| `WORKER_CONCURRENCY` | No | Job worker concurrency (default: 5) |
 | `MCP_SERVER_URLS` | No | Comma-separated MCP server URLs |
 | `MCP_ACCESS_KEY` | No | Shared access key for MCP servers |
+| `GITHUB_MCP_URL` | No | GitHub MCP server URL |
+| `GITHUB_PAT` | No | GitHub personal access token (required if `GITHUB_MCP_URL` is set) |
+| `LINEAR_MCP_URL` | No | Linear MCP server URL |
+| `LINEAR_MCP_ACCESS_TOKEN` | No | Linear MCP access token |
+| `LINEAR_MCP_TOKEN_URL` | No | Linear OAuth token refresh URL |
+| `LINEAR_MCP_CLIENT_ID` | No | Linear OAuth client ID |
+| `LINEAR_MCP_CLIENT_SECRET` | No | Linear OAuth client secret |
+| `LINEAR_MCP_REFRESH_TOKEN` | No | Linear OAuth refresh token |
 | `SLACK_CLIENT_ID` | No | For dashboard OAuth |
 | `SLACK_CLIENT_SECRET` | No | For dashboard OAuth |
 | `COOKIE_SIGNING_KEY` | No | For dashboard sessions |
 | `DASHBOARD_URL` | No | Public URL for OAuth redirect |
 | `SLACK_TEAM_ID` | No | Restrict dashboard to one workspace |
-| `WORKER_CONCURRENCY` | No | Job worker concurrency (default: 5) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | OpenTelemetry collector endpoint |
+| `OTEL_EXPORTER` | No | Exporter type: "otlp" or "stdout" |
 
 ## Cost
 
@@ -201,6 +218,7 @@ MIT
 
 ## Links
 
-- [Vision](vision.md)
-- [Architecture](docs/architecture.md)
+- [Setup Guide](docs/setup.md)
 - [Slack Setup Guide](docs/slack-setup.md)
+- [Architecture](docs/architecture.md)
+- [Vision](vision.md)

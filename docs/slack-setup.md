@@ -1,6 +1,6 @@
 # Slack Setup Guide
 
-Complete guide to creating and configuring a Slack bot for Ponko.
+Complete guide to creating and configuring a Slack bot for Ponko. Part of the [setup guide](setup.md).
 
 ## Step 1: Create a Slack App
 
