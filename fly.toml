@@ -1,0 +1,29 @@
+app = '<your-app>'
+primary_region = 'iad'
+
+[build]
+
+[env]
+  PORT = '8080'
+  # DATABASE_URL is auto-attached by Fly Postgres — do not set here
+  # ANTHROPIC_API_KEY — set via: fly secrets set ANTHROPIC_API_KEY=sk-...
+  # WORKER_CONCURRENCY — optional, set via: fly secrets set WORKER_CONCURRENCY=5
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  grace_period = "10s"
+  interval = "15s"
+  method = "GET"
+  path = "/health"
+  timeout = "5s"
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1

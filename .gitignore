@@ -1,0 +1,36 @@
+# Go
+bin/
+/server
+*.exe
+vendor/
+
+# Environment
+.env
+.env.local
+.envrc
+
+# Docker
+docker-data/
+
+# Fly.io
+.fly/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+
+# MCP config (contains auth keys)
+.mcp.json
+
+# Test
+*.out
+coverage.html
+
+# Frontend
+web/node_modules/
+web/dist/
+
+# Ralph
+progress.txt
+/prd.json
