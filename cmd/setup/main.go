@@ -51,6 +51,11 @@ func runSetup(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	if err := saveConfig(cfg, configPath); err != nil {
+		return fmt.Errorf("saving config: %w", err)
+	}
+	fmt.Printf("Config saved to %s\n", configPath)
+
 	return deploy(cfg)
 }
 

@@ -46,7 +46,6 @@ func deployFly(cfg *Config) error {
 		region = "iad"
 	}
 
-	// Check fly auth
 	if err := runCmd("fly", "auth", "whoami"); err != nil {
 		fmt.Println("Not logged in to Fly.io — opening login...")
 		if err := runCmd("fly", "auth", "login"); err != nil {
@@ -54,7 +53,6 @@ func deployFly(cfg *Config) error {
 		}
 	}
 
-	// Cache app list for existence checks
 	appList, _ := cmdOutput("fly", "apps", "list")
 	appExists := func(name string) bool {
 		for _, line := range strings.Split(appList, "\n") {
@@ -66,7 +64,6 @@ func deployFly(cfg *Config) error {
 		return false
 	}
 
-	// Create app
 	if appExists(appName) {
 		fmt.Printf("App %s already exists, skipping creation.\n", appName)
 	} else {
@@ -76,7 +73,6 @@ func deployFly(cfg *Config) error {
 		}
 	}
 
-	// Create Postgres
 	dbName := appName + "-db"
 	if appExists(dbName) {
 		fmt.Printf("Database %s already exists, skipping creation.\n", dbName)
@@ -93,11 +89,11 @@ func deployFly(cfg *Config) error {
 		}
 	}
 
-	// Attach database
 	fmt.Println("Attaching database...")
-	_ = runCmd("fly", "postgres", "attach", dbName, "--app", appName)
+	if err := runCmd("fly", "postgres", "attach", dbName, "--app", appName); err != nil {
+		fmt.Printf("Warning: database attach returned an error (may already be attached): %v\n", err)
+	}
 
-	// Set secrets
 	fmt.Println("Setting secrets...")
 	secrets := buildSecrets(cfg)
 	args := append([]string{"secrets", "set", "-a", appName}, secrets...)
@@ -105,12 +101,10 @@ func deployFly(cfg *Config) error {
 		return fmt.Errorf("setting secrets: %w", err)
 	}
 
-	// Save config with generated values
 	if err := saveConfig(cfg, configPath); err != nil {
 		fmt.Printf("Warning: could not update config file: %v\n", err)
 	}
 
-	// Update fly.toml
 	flyToml, err := os.ReadFile("fly.toml")
 	if err == nil && strings.Contains(string(flyToml), "<your-app>") {
 		updated := strings.ReplaceAll(string(flyToml), "<your-app>", appName)
@@ -121,13 +115,11 @@ func deployFly(cfg *Config) error {
 		}
 	}
 
-	// Deploy
 	fmt.Println("Deploying...")
 	if err := runCmd("fly", "deploy"); err != nil {
 		return fmt.Errorf("deploy failed: %w", err)
 	}
 
-	// Health check
 	fmt.Println("\nWaiting for health check...")
 	healthURL := cfg.Deploy.URL + "/health"
 	for i := range 30 {
@@ -166,17 +158,16 @@ func deployDocker(cfg *Config) error {
 	fmt.Println("Generating .env for Docker...")
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "DATABASE_URL=postgres://agent:agent@db:5432/agent?sslmode=disable\n")
-	fmt.Fprintf(&b, "ANTHROPIC_API_KEY=%s\n", cfg.AI.AnthropicAPIKey)
-	fmt.Fprintf(&b, "SLACK_BOT_TOKEN=%s\n", cfg.Slack.BotToken)
-	fmt.Fprintf(&b, "SLACK_SIGNING_SECRET=%s\n", cfg.Slack.SigningSecret)
-	fmt.Fprintf(&b, "SLACK_BOT_USER_ID=%s\n", cfg.Slack.BotUserID)
-	fmt.Fprintf(&b, "PONKO_API_KEY=%s\n", cfg.Deploy.APIKey)
-	fmt.Fprintf(&b, "COOKIE_SIGNING_KEY=%s\n", cfg.Deploy.CookieSigningKey)
-
-	fmt.Fprintf(&b, "BOT_NAME=%s\n", cfg.Bot.Name)
-	fmt.Fprintf(&b, "TIMEZONE=%s\n", cfg.Bot.Timezone)
-	fmt.Fprintf(&b, "WORKER_CONCURRENCY=%d\n", cfg.Deploy.WorkerConcurrency)
+	writeEnvIf(&b, "DATABASE_URL", "postgres://agent:agent@db:5432/agent?sslmode=disable")
+	writeEnvIf(&b, "ANTHROPIC_API_KEY", cfg.AI.AnthropicAPIKey)
+	writeEnvIf(&b, "SLACK_BOT_TOKEN", cfg.Slack.BotToken)
+	writeEnvIf(&b, "SLACK_SIGNING_SECRET", cfg.Slack.SigningSecret)
+	writeEnvIf(&b, "SLACK_BOT_USER_ID", cfg.Slack.BotUserID)
+	writeEnvIf(&b, "PONKO_API_KEY", cfg.Deploy.APIKey)
+	writeEnvIf(&b, "COOKIE_SIGNING_KEY", cfg.Deploy.CookieSigningKey)
+	writeEnvIf(&b, "BOT_NAME", cfg.Bot.Name)
+	writeEnvIf(&b, "TIMEZONE", cfg.Bot.Timezone)
+	writeEnvIf(&b, "WORKER_CONCURRENCY", fmt.Sprintf("%d", cfg.Deploy.WorkerConcurrency))
 
 	writeEnvIf(&b, "SYSTEM_PROMPT", cfg.Bot.SystemPrompt)
 	writeEnvIf(&b, "DASHBOARD_URL", cfg.Deploy.URL)
