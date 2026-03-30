@@ -3,6 +3,7 @@
 build:
 	npm --prefix web install && npm --prefix web run build
 	go build -o bin/server ./cmd/server
+	go build -o bin/setup ./cmd/setup
 
 test:
 	go test ./...
