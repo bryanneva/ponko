@@ -1,4 +1,4 @@
-.PHONY: build test test-unit test-e2e test-coverage lint run db-up db-down migrate-up migrate-down
+.PHONY: build test test-unit test-e2e test-coverage lint run setup db-up db-down migrate-up migrate-down
 
 build:
 	npm --prefix web install && npm --prefix web run build
@@ -29,6 +29,9 @@ lint:
 
 run:
 	go run ./cmd/server
+
+setup:
+	go run ./cmd/setup
 
 db-up:
 	docker compose up -d postgres

@@ -1,6 +1,6 @@
 # ponko.yaml — Ponko configuration
 # Copy this file: cp ponko.example.yaml ponko.yaml
-# Then fill in your values, or run: ./scripts/setup.sh
+# Then fill in your values, or run: go run ./cmd/setup
 
 # ── Bot ───────────────────────────────────────────────
 bot:
@@ -36,7 +36,7 @@ dashboard:
 
 # ── MCP Tools (optional) ─────────────────────────────
 mcp:
-  server_urls: []                  # Comma-separated MCP server URLs
+  server_urls: ""                  # Comma-separated MCP server URLs
   access_key: ""                   # Shared access key for MCP servers
 
 # ── GitHub MCP (optional) ────────────────────────────
