@@ -284,11 +284,9 @@ func main() {
 		slog.Warn("PONKO_API_KEY not set, workflow endpoints are unauthenticated")
 	}
 
-	var toolNames []string
-	if mcpMultiClient != nil {
-		for _, t := range mcpMultiClient.Tools() {
-			toolNames = append(toolNames, t.Name)
-		}
+	toolNames := make([]string, 0, len(allTools))
+	for _, t := range allTools {
+		toolNames = append(toolNames, t.Name)
 	}
 
 	cookieSigningKey := os.Getenv("COOKIE_SIGNING_KEY")
