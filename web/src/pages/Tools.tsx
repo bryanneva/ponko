@@ -28,7 +28,10 @@ export default function Tools() {
         if (!r.ok) throw new Error(`Channels endpoint returned ${r.status}`)
         return r.json()
       })
-      .catch(() => [] as Channel[])
+      .catch((err) => {
+        console.error('Failed to fetch channels:', err)
+        return [] as Channel[]
+      })
 
     fetchTools
       .then((toolsData: { tools: string[] }) => {
