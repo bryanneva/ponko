@@ -19,23 +19,36 @@ export default function Tools() {
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/tools').then(r => r.json()),
-      fetch('/api/channels').then(r => r.json()),
-    ])
-      .then(([toolsData, channels]: [{ tools: string[] }, Channel[]]) => {
-        const toolRows: ToolRow[] = toolsData.tools.map(name => {
-          const chans = channels
-            .filter(ch => ch.toolAllowlist === null || ch.toolAllowlist.includes(name))
-            .map(ch => ({
-              id: ch.channelId,
-              label: ch.channelName ? `#${ch.channelName}` : ch.channelId,
-              allowed: (ch.toolAllowlist === null ? 'all' : 'explicit') as 'all' | 'explicit',
-            }))
-          return { name, channels: chans }
+    const fetchTools = fetch('/api/tools').then(r => {
+      if (!r.ok) throw new Error(`Tools endpoint returned ${r.status}`)
+      return r.json()
+    })
+    const fetchChannels = fetch('/api/channels')
+      .then(r => {
+        if (!r.ok) throw new Error(`Channels endpoint returned ${r.status}`)
+        return r.json()
+      })
+      .catch((err) => {
+        console.error('Failed to fetch channels:', err)
+        return [] as Channel[]
+      })
+
+    fetchTools
+      .then((toolsData: { tools: string[] }) => {
+        return fetchChannels.then((channels: Channel[]) => {
+          const toolRows: ToolRow[] = toolsData.tools.map(name => {
+            const chans = channels
+              .filter(ch => ch.toolAllowlist === null || ch.toolAllowlist.includes(name))
+              .map(ch => ({
+                id: ch.channelId,
+                label: ch.channelName ? `#${ch.channelName}` : ch.channelId,
+                allowed: (ch.toolAllowlist === null ? 'all' : 'explicit') as 'all' | 'explicit',
+              }))
+            return { name, channels: chans }
+          })
+          setRows(toolRows)
+          setLoading(false)
         })
-        setRows(toolRows)
-        setLoading(false)
       })
       .catch(() => {
         setError(true)
@@ -53,7 +66,7 @@ export default function Tools() {
         <div className={styles.header}>
           <h1 className={styles.title}>Tools</h1>
         </div>
-        <div className={styles.empty}>Failed to load tools.</div>
+        <div className={styles.empty}>Could not load tools. Check that the server is running and you are logged in.</div>
       </div>
     )
   }
@@ -64,7 +77,7 @@ export default function Tools() {
         <div className={styles.header}>
           <h1 className={styles.title}>Tools</h1>
         </div>
-        <div className={styles.empty}>No tools available.</div>
+        <div className={styles.empty}>No tools available. Connect an MCP server to add tools.</div>
       </div>
     )
   }
