@@ -19,12 +19,7 @@ Thanks for your interest in contributing! Ponko is a self-hosted AI agent that l
    go mod download
    ```
 
-2. Copy the example env file and fill in your credentials:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Run the setup CLI to configure your deployment:
+2. Run the setup CLI to configure your deployment:
    ```bash
    make build
    ./bin/setup
