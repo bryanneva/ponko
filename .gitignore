@@ -44,3 +44,6 @@ ponko.yaml
 # Ralph
 progress.txt
 /prd.json
+
+# Groom-consume state (local pipeline evaluation)
+.context/

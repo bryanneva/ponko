@@ -74,3 +74,11 @@ Test placement: `internal/foo/bar_test.go` alongside `internal/foo/bar.go`. Use 
 River jobs that fail after producing side effects get retried, duplicating those side effects. Pattern:
 - **Bad**: `createOutboxEntry()` then `transitionStatus()` — if transition fails, retry creates duplicate entries
 - **Good**: Transition state first, then produce side effects — or make side effects idempotent
+
+## Product Management
+
+- **Backlog**: tracked in GitHub Issues + project-queue MCP. All issues assigned to project **"ponko: Daily Driver"**.
+- **Workstream**: `ponko`
+- **Active project**: [ponko: Daily Driver](https://github.com/bryanneva/ponko/issues) — stability, self-hostability, core UX
+- **Triage**: external issues from edruder (#6, #7, #8, #12, #13) are labeled `needs-triage` until reviewed and accepted/declined
+- **Derived issues**: each user-facing request has a corresponding internal engineering ticket (#15–#20) with concrete exit criteria
