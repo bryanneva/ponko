@@ -26,6 +26,7 @@ docker-data/
 
 # Claude local config (contains deployment-specific details)
 CLAUDE.local.md
+.claude/
 
 # MCP config (contains auth keys)
 .mcp.json
