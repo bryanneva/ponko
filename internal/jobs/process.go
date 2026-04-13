@@ -119,7 +119,7 @@ type ProcessWorker struct {
 	river.WorkerDefaults[ProcessArgs]
 	MCPClient    llm.ToolCaller
 	Pool         *pgxpool.Pool
-	Claude       *llm.Client
+	Claude       LLMClient
 	Slack        *slack.Client
 	UserStore    *user.Store
 	Timezone     *time.Location

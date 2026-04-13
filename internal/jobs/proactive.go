@@ -28,7 +28,7 @@ type ProactiveMessageWorker struct {
 	river.WorkerDefaults[ProactiveMessageArgs]
 	MCPClient    llm.ToolCaller
 	Pool         *pgxpool.Pool
-	Claude       *llm.Client
+	Claude       LLMClient
 	Slack        *slack.Client
 	Timezone     *time.Location
 	SystemPrompt string
