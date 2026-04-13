@@ -31,7 +31,7 @@ type ExecuteWorker struct {
 	river.WorkerDefaults[ExecuteArgs]
 	MCPClient    llm.ToolCaller
 	Pool         *pgxpool.Pool
-	Claude       *llm.Client
+	Claude       LLMClient
 	UserStore    *user.Store
 	Timezone     *time.Location
 	SystemPrompt string

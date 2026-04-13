@@ -28,7 +28,7 @@ func (SynthesizeArgs) Kind() string { return "synthesize" }
 type SynthesizeWorker struct {
 	river.WorkerDefaults[SynthesizeArgs]
 	Pool   *pgxpool.Pool
-	Claude *llm.Client
+	Claude LLMClient
 }
 
 func (w *SynthesizeWorker) Timeout(_ *river.Job[SynthesizeArgs]) time.Duration {

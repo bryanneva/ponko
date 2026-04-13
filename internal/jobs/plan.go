@@ -30,7 +30,7 @@ func (PlanArgs) Kind() string { return "plan" }
 type PlanWorker struct {
 	river.WorkerDefaults[PlanArgs]
 	Pool       *pgxpool.Pool
-	Claude     *llm.Client
+	Claude     LLMClient
 	Slack      *slack.Client
 	AppBaseURL string
 }
@@ -240,7 +240,7 @@ func (w *PlanWorker) decompose(ctx context.Context, payload receivePayload) ([]t
 		return nil, nil
 	}
 
-	response, err := w.Claude.SendMessage(ctx, fmt.Sprintf("%s\n\nUser message: %s", decomposePrompt, payload.Message), llm.ModelSonnet)
+	response, err := w.Claude.SendMessage(ctx, fmt.Sprintf("%s\n\nUser message: %s", decomposePrompt, payload.Message), llm.ModelHaiku)
 	if err != nil {
 		slog.Warn("plan decomposition failed, falling back to bypass", "error", err)
 		return nil, nil
