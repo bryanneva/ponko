@@ -242,6 +242,9 @@ func (w *PlanWorker) decompose(ctx context.Context, payload receivePayload) ([]t
 
 	response, err := w.Claude.SendMessage(ctx, fmt.Sprintf("%s\n\nUser message: %s", decomposePrompt, payload.Message), llm.ModelHaiku)
 	if err != nil {
+		if llm.IsPermanentError(err) {
+			return nil, err
+		}
 		slog.Warn("plan decomposition failed, falling back to bypass", "error", err)
 		return nil, nil
 	}
