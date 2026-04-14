@@ -1,4 +1,4 @@
-.PHONY: build test test-unit test-e2e test-coverage lint run setup db-up db-down migrate-up migrate-down
+.PHONY: build test test-unit test-e2e test-coverage lint run setup db-up db-down migrate-up migrate-down ci
 
 build:
 	npm --prefix web install && npm --prefix web run build
@@ -50,3 +50,15 @@ migrate-up:
 
 migrate-down:
 	goose -dir db/migrations postgres "$(DATABASE_URL)" down
+
+ci:
+	@$(MAKE) lint
+	@$(MAKE) build
+	@$(MAKE) test-unit
+	@if pg_isready -h localhost -p 5433 > /dev/null 2>&1; then \
+		echo "==> Postgres available — running e2e tests..."; \
+		$(MAKE) test-e2e; \
+	else \
+		echo "==> Postgres not available — skipping e2e tests (run 'make db-up')"; \
+	fi
+	@echo "==> CI passed"
