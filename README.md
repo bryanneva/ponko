@@ -208,6 +208,8 @@ make test-e2e    # Run E2E tests (requires local Postgres)
 make test-cover  # Test with coverage report
 ```
 
+CI runs through Dagger and can be emulated locally. See [CI](docs/ci.md).
+
 ## Contributing
 
 Contributions welcome. Please open an issue first to discuss what you'd like to change.

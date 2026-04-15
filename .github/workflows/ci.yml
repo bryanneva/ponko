@@ -6,64 +6,64 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  lint:
     runs-on: ubuntu-latest
-
-    env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: agent
-          POSTGRES_PASSWORD: agent
-          POSTGRES_DB: agent_dev
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Build frontend
-        run: npm --prefix web install && npm --prefix web run build
-
       - name: Lint
-        uses: golangci/golangci-lint-action@v7
+        uses: dagger/dagger-for-github@v8.3.0
         with:
-          version: v2.11.3
+          version: v0.20.5
+          verb: call
+          args: lint --source=.
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Build
-        run: make build
+        uses: dagger/dagger-for-github@v8.3.0
+        with:
+          version: v0.20.5
+          verb: call
+          args: build --source=.
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Unit tests
-        run: make test-coverage
+        uses: dagger/dagger-for-github@v8.3.0
+        with:
+          version: v0.20.5
+          verb: call
+          args: test --source=.
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
 
-      - name: Coverage summary
-        if: always()
-        run: |
-          if [ -f coverage.out ]; then
-            COVERAGE=$(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')
-            echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Total**: ${COVERAGE}" >> $GITHUB_STEP_SUMMARY
-          fi
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event.pull_request.head.repo.full_name == github.repository }}
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: E2E tests
-        if: env.ANTHROPIC_API_KEY != ''
-        env:
-          DATABASE_URL: postgres://agent:agent@localhost:5432/agent_dev?sslmode=disable
-        run: make test-e2e
+        uses: dagger/dagger-for-github@v8.3.0
+        with:
+          version: v0.20.5
+          verb: call
+          args: e-2-e --source=. --anthropic-api-key env:ANTHROPIC_API_KEY
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
