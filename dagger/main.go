@@ -56,11 +56,13 @@ func (m *Ponko) Lint(ctx context.Context, source *dagger.Directory) (string, err
 		Stdout(ctx)
 }
 
-// Build the server and setup binaries.
+// Build the slack bot, setup wizard, local CLI, and cloud runtime binaries.
 func (m *Ponko) Build(ctx context.Context, source *dagger.Directory) (string, error) {
 	return m.goContainer(m.sourceWithFrontend(source)).
-		WithExec([]string{"go", "build", "-o", "/tmp/bin/server", "./cmd/server"}).
+		WithExec([]string{"go", "build", "-o", "/tmp/bin/slack", "./cmd/slack"}).
 		WithExec([]string{"go", "build", "-o", "/tmp/bin/setup", "./cmd/setup"}).
+		WithExec([]string{"go", "build", "-o", "/tmp/bin/cli", "./cmd/cli"}).
+		WithExec([]string{"go", "build", "-o", "/tmp/bin/runtime", "./cmd/runtime"}).
 		Stdout(ctx)
 }
 

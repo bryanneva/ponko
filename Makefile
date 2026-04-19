@@ -2,8 +2,10 @@
 
 build:
 	npm --prefix web install && npm --prefix web run build
-	go build -o bin/server ./cmd/server
-	go build -o bin/setup ./cmd/setup
+	go build -o bin/slack   ./cmd/slack
+	go build -o bin/setup   ./cmd/setup
+	go build -o bin/cli     ./cmd/cli
+	go build -o bin/runtime ./cmd/runtime
 
 test:
 	go test ./...
@@ -29,7 +31,10 @@ lint:
 	golangci-lint run ./...
 
 run:
-	go run ./cmd/server
+	go run ./cmd/slack
+
+run-cli:
+	go run ./cmd/cli
 
 setup:
 	go run ./cmd/setup
