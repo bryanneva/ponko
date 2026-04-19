@@ -94,7 +94,6 @@ func runOtto(cmd *cobra.Command, _ []string) error {
 		Runtime:     rt,
 		GateChecker: intaker,
 		Commenter:   intaker,
-		Approval:    intaker,
 	})
 	worker.RegisterApprovalPoller(workers, worker.ApprovalPollerWorkerDeps{
 		ApprovalChecker: intaker,

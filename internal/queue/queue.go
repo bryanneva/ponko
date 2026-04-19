@@ -18,9 +18,8 @@ const defaultWorkerConcurrency = 1
 
 // New creates a River client connected to the given pool.
 // It runs River's migrations on startup and configures the worker pool
-// with concurrency from WORKER_CONCURRENCY env var (default 10).
+// with concurrency from WORKER_CONCURRENCY env var (default 10 for the Slack bot).
 func New(ctx context.Context, pool *pgxpool.Pool, workers *river.Workers, periodicJobs []*river.PeriodicJob) (*river.Client[pgx.Tx], error) {
-	// Run River migrations
 	migrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating river migrator: %w", err)

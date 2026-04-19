@@ -47,7 +47,6 @@ type TaskPhaseWorkerDeps struct {
 	Runtime     runtime.AgentRuntime
 	GateChecker GateChecker
 	Commenter   Commenter
-	Approval    ApprovalChecker
 	Cfg         config.Config
 }
 

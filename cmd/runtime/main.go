@@ -24,14 +24,12 @@ func main() {
 		port = "8080"
 	}
 
-	// Database pool
 	pool, err := db.NewPool(ctx, "")
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	log.Println("Database connected")
 
-	// River migrations
 	res, err := queue.RunMigrations(ctx, pool)
 	if err != nil {
 		pool.Close()
@@ -39,7 +37,6 @@ func main() {
 	}
 	log.Printf("River migrations complete (%d versions applied)", len(res.Versions))
 
-	// River client with workers
 	workers := river.NewWorkers()
 	worker.RegisterPlaceholder(workers)
 
@@ -51,7 +48,6 @@ func main() {
 	}
 	log.Printf("River started (worker concurrency: %d)", concurrency)
 
-	// HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := pool.Ping(r.Context()); err != nil {
@@ -66,7 +62,6 @@ func main() {
 		Handler: mux,
 	}
 
-	// Start server in goroutine
 	go func() {
 		log.Printf("Listening on :%s", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -74,11 +69,9 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal
 	<-ctx.Done()
 	log.Println("Shutting down...")
 
-	// Graceful shutdown: HTTP server → River client → DB pool
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
