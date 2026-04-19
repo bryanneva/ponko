@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ponko-runner</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; background: #0f1117; color: #e2e8f0; font-size: 13px; line-height: 1.5; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #1e2330; background: #0d1019; }
+  header h1 { font-size: 15px; font-weight: 600; color: #a0aec0; letter-spacing: 0.02em; }
+  #last-updated { font-size: 11px; color: #4a5568; }
+  main { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 1px; background: #1e2330; }
+  section { background: #0f1117; padding: 16px 20px; }
+  section.full { grid-column: 1 / -1; }
+  h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #4a5568; margin-bottom: 12px; }
+
+  /* Budget bar */
+  .budget-bar-wrap { margin-bottom: 8px; }
+  .budget-bar-track { height: 6px; background: #1e2330; border-radius: 3px; overflow: hidden; }
+  .budget-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s ease; background: #4299e1; }
+  .budget-bar-fill.warn { background: #ed8936; }
+  .budget-bar-fill.over  { background: #e53e3e; }
+  .budget-nums { display: flex; justify-content: space-between; font-size: 12px; color: #718096; margin-top: 4px; }
+  .budget-nums .spent { color: #e2e8f0; font-weight: 500; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; color: #4a5568; font-weight: 500; padding: 4px 8px 8px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #1e2330; }
+  td { padding: 6px 8px 6px 0; border-bottom: 1px solid #1a1f2e; vertical-align: top; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable { cursor: pointer; }
+  tr.clickable:hover td { background: #141824; }
+  .empty { color: #4a5568; font-style: italic; padding: 8px 0; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .badge.queued      { background: #2d3748; color: #a0aec0; }
+  .badge.in_progress { background: #1a365d; color: #63b3ed; }
+  .badge.blocked     { background: #322a1a; color: #f6ad55; }
+  .badge.completed   { background: #1a2e1a; color: #68d391; }
+  .badge.failed      { background: #2d1515; color: #fc8181; }
+  .badge.running     { background: #1a365d; color: #63b3ed; }
+  .badge.groom       { background: #2d2348; color: #b794f4; }
+
+  /* Pipeline stage badges */
+  .badge.pending          { background: #2d3748; color: #a0aec0; }
+  .badge.classifying      { background: #1a365d; color: #63b3ed; }
+  .badge.planning         { background: #1a365d; color: #63b3ed; }
+  .badge.fanout           { background: #1a365d; color: #63b3ed; }
+  .badge.executing        { background: #322a1a; color: #f6ad55; }
+  .badge.validating       { background: #2d2a1a; color: #ed8936; }
+  .badge.awaiting_approval { background: #2a1a2d; color: #b794f4; }
+  .badge.fix              { background: #1a2d1a; color: #68d391; }
+  .badge.rpi              { background: #1a2d2d; color: #4fd1c5; }
+  .badge.ralph            { background: #2d1a2d; color: #d6bcfa; }
+
+  /* Pipeline detail */
+  .pipeline-detail { display: none; padding: 12px; background: #0a0e17; border-top: 1px solid #1e2330; }
+  .pipeline-detail.open { display: block; }
+  .pipeline-detail .rationale { color: #a0aec0; font-style: italic; margin-bottom: 8px; font-size: 12px; }
+  .story-list { list-style: none; }
+  .story-list li { padding: 4px 0; font-size: 12px; color: #718096; }
+  .story-list li.done { color: #68d391; }
+  .progress-bar { display: inline-block; width: 60px; height: 4px; background: #1e2330; border-radius: 2px; vertical-align: middle; margin-left: 6px; }
+  .progress-bar-fill { height: 100%; border-radius: 2px; background: #4299e1; }
+
+  /* Event log */
+  .event-list { list-style: none; max-height: 280px; overflow-y: auto; }
+  .event-list li { display: flex; gap: 10px; padding: 5px 0; border-bottom: 1px solid #1a1f2e; font-size: 12px; }
+  .event-list li:last-child { border-bottom: none; }
+  .ev-time { color: #4a5568; flex-shrink: 0; width: 80px; }
+  .ev-type { color: #63b3ed; flex-shrink: 0; width: 160px; }
+  .ev-task { color: #718096; flex-shrink: 0; width: 70px; font-family: monospace; }
+  .ev-payload { color: #a0aec0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+  /* Log modal */
+  #log-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; align-items: center; justify-content: center; }
+  #log-modal.open { display: flex; }
+  .modal-box { background: #0d1019; border: 1px solid #1e2330; border-radius: 6px; width: 90vw; max-width: 900px; max-height: 80vh; display: flex; flex-direction: column; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #1e2330; }
+  .modal-header h3 { font-size: 12px; font-weight: 600; color: #a0aec0; font-family: monospace; }
+  .modal-close { background: none; border: none; color: #4a5568; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
+  .modal-close:hover { color: #e2e8f0; }
+  #log-output { flex: 1; overflow-y: auto; padding: 12px 16px; font-family: monospace; font-size: 11px; color: #a0aec0; white-space: pre-wrap; word-break: break-all; background: #080b10; }
+
+  a { color: #63b3ed; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .cost { font-family: monospace; color: #a0aec0; }
+  .mono { font-family: monospace; font-size: 11px; color: #718096; }
+  .num { font-family: monospace; text-align: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ponko-runner</h1>
+  <span id="last-updated">—</span>
+</header>
+
+<main>
+  <!-- Budget -->
+  <section>
+    <h2>Budget — Today</h2>
+    <div class="budget-bar-wrap">
+      <div class="budget-bar-track"><div id="budget-fill" class="budget-bar-fill" style="width:0%"></div></div>
+      <div class="budget-nums">
+        <span class="spent" id="budget-spent">$0.00</span>
+        <span id="budget-limit">/ $0.00</span>
+        <span id="budget-remaining">$0.00 remaining</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Active Tasks -->
+  <section>
+    <h2>Active Tasks</h2>
+    <table id="active-table">
+      <thead><tr><th>Issue</th><th>Phase</th><th>Status</th><th>Cost</th></tr></thead>
+      <tbody id="active-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- Job Runs -->
+  <section class="full">
+    <h2>Job Runs</h2>
+    <table id="jobs-table">
+      <thead><tr><th>Time</th><th>Type</th><th>Projects</th><th>Issues</th><th>Cost</th><th>Duration</th><th>Status</th></tr></thead>
+      <tbody id="jobs-body"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- Groom Projects -->
+  <section class="full" id="groom-projects-section" style="display:none">
+    <h2>Groom Projects</h2>
+    <table id="groom-table">
+      <thead><tr><th>Project</th><th class="num">Pending</th><th class="num">Evaluating</th><th class="num">Groomed</th><th class="num">Blocked</th><th class="num">Has Gaps</th><th>Last Run</th></tr></thead>
+      <tbody id="groom-body"></tbody>
+    </table>
+  </section>
+
+  <!-- Event Stream -->
+  <section class="full">
+    <h2>Recent Events</h2>
+    <ul class="event-list" id="event-list">
+      <li><span class="ev-payload" style="color:#4a5568">Loading…</span></li>
+    </ul>
+  </section>
+
+  <!-- Dev Router Pipelines -->
+  <section class="full" id="pipelines-section">
+    <h2>Dev Router Pipelines</h2>
+    <table id="pipelines-table">
+      <thead><tr><th>Issue</th><th>Repo</th><th>Track</th><th>Stage</th><th>Progress</th><th>Cost</th><th>Created</th></tr></thead>
+      <tbody id="pipelines-body"><tr><td colspan="7" class="empty">No pipelines yet</td></tr></tbody>
+    </table>
+  </section>
+
+  <!-- Task History -->
+  <section class="full">
+    <h2>Task History</h2>
+    <table id="history-table">
+      <thead><tr><th>Issue</th><th>Workflow</th><th>Status</th><th>Cost</th><th>Updated</th></tr></thead>
+      <tbody id="history-body"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<!-- Log tail modal -->
+<div id="log-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="log-modal-title">—</h3>
+      <button class="modal-close" onclick="closeLogModal()">✕</button>
+    </div>
+    <div id="log-output"></div>
+  </div>
+</div>
+
+<script>
+const ACTIVE_STATUSES = new Set(['queued', 'in_progress', 'blocked']);
+
+function fmtCost(n) { return '$' + n.toFixed(4); }
+function fmtDuration(s) {
+  if (!s) return '—';
+  if (s < 60) return s.toFixed(0) + 's';
+  return Math.floor(s / 60) + 'm ' + (s % 60).toFixed(0) + 's';
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+function fmtRelative(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return s + 's ago';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  return Math.floor(m / 60) + 'h ago';
+}
+function badge(status) {
+  return `<span class="badge ${status}">${status.replace('_', ' ')}</span>`;
+}
+function issueLink(url, num, title) {
+  const label = title || ('#' + num);
+  return url ? `<a href="${url}" target="_blank" title="${title || url}">${label}</a>` : (title || url);
+}
+function payloadSummary(payload) {
+  if (!payload) return '';
+  const parts = [];
+  for (const [k, v] of Object.entries(payload)) {
+    if (k === 'task_id') continue;
+    parts.push(`${k}=${JSON.stringify(v)}`);
+  }
+  return parts.join(' ');
+}
+
+async function fetchJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+  return r.json();
+}
+
+async function refreshBudget() {
+  const b = await fetchJSON('/api/budget');
+  const pct = b.day_limit > 0 ? Math.min(100, (b.day_spent / b.day_limit) * 100) : 0;
+  const fill = document.getElementById('budget-fill');
+  fill.style.width = pct + '%';
+  fill.className = 'budget-bar-fill' + (pct >= 100 ? ' over' : pct >= 80 ? ' warn' : '');
+  document.getElementById('budget-spent').textContent = fmtCost(b.day_spent);
+  document.getElementById('budget-limit').textContent = '/ ' + fmtCost(b.day_limit);
+  document.getElementById('budget-remaining').textContent = fmtCost(b.day_remaining) + ' remaining';
+}
+
+async function refreshTasks() {
+  const tasks = await fetchJSON('/api/tasks');
+  const active = tasks.filter(t => ACTIVE_STATUSES.has(t.status));
+  const history = tasks.filter(t => !ACTIVE_STATUSES.has(t.status));
+
+  const abody = document.getElementById('active-body');
+  if (active.length === 0) {
+    abody.innerHTML = '<tr><td colspan="4" class="empty">No active tasks</td></tr>';
+  } else {
+    abody.innerHTML = active.map(t => `
+      <tr>
+        <td>${issueLink(t.issue_url, t.issue_number, t.title)}</td>
+        <td class="mono">${t.phase || '—'}</td>
+        <td>${badge(t.status)}</td>
+        <td class="cost">${fmtCost(t.cost_usd)}</td>
+      </tr>`).join('');
+  }
+
+  const hbody = document.getElementById('history-body');
+  if (history.length === 0) {
+    hbody.innerHTML = '<tr><td colspan="5" class="empty">No completed tasks yet</td></tr>';
+  } else {
+    hbody.innerHTML = history.slice().reverse().map(t => `
+      <tr>
+        <td>${issueLink(t.issue_url, t.issue_number, t.title)}</td>
+        <td class="mono">${t.workflow}</td>
+        <td>${badge(t.status)}</td>
+        <td class="cost">${fmtCost(t.cost_usd)}</td>
+        <td class="mono">${fmtRelative(t.updated_at)}</td>
+      </tr>`).join('');
+  }
+}
+
+async function refreshEvents() {
+  const events = await fetchJSON('/api/events?limit=50');
+  const list = document.getElementById('event-list');
+  if (!events || events.length === 0) {
+    list.innerHTML = '<li><span class="ev-payload" style="color:#4a5568">No events yet</span></li>';
+    return;
+  }
+  list.innerHTML = events.slice().reverse().map(e => `
+    <li>
+      <span class="ev-time">${fmtTime(e.timestamp)}</span>
+      <span class="ev-type">${e.type}</span>
+      <span class="ev-task">${(e.task_id || e.correlation_id || '').substring(0, 8)}</span>
+      <span class="ev-payload">${payloadSummary(e.payload)}</span>
+    </li>`).join('');
+}
+
+async function refreshJobs() {
+  const data = await fetchJSON('/api/jobs');
+
+  // Job Runs table
+  const jbody = document.getElementById('jobs-body');
+  const runs = (data.runs || []).slice().reverse();
+  if (runs.length === 0) {
+    jbody.innerHTML = '<tr><td colspan="7" class="empty">No job runs yet — groom has not run with observability enabled</td></tr>';
+  } else {
+    jbody.innerHTML = runs.map(r => `
+      <tr class="clickable" onclick="openLogModal('${r.run_id}', '${(r.projects||[]).join(', ')}')">
+        <td class="mono">${fmtTime(r.started_at)}</td>
+        <td>${badge(r.job_type || 'groom')}</td>
+        <td>${(r.projects || []).join(', ') || '—'}</td>
+        <td class="num">${r.issue_count || '—'}</td>
+        <td class="cost">${fmtCost(r.total_cost_usd || 0)}</td>
+        <td class="mono">${fmtDuration(r.duration_secs)}</td>
+        <td>${badge(r.status)}</td>
+      </tr>`).join('');
+  }
+
+  // Groom Projects table
+  const projects = data.projects || [];
+  const gpSection = document.getElementById('groom-projects-section');
+  if (projects.length > 0) {
+    gpSection.style.display = '';
+    document.getElementById('groom-body').innerHTML = projects.map(p => `
+      <tr>
+        <td>${p.project}</td>
+        <td class="num mono">${p.pending}</td>
+        <td class="num mono">${p.evaluating}</td>
+        <td class="num mono" style="color:#68d391">${p.groomed}</td>
+        <td class="num mono" style="color:#f6ad55">${p.blocked}</td>
+        <td class="num mono" style="color:#fc8181">${p.has_gaps}</td>
+        <td class="mono">${p.last_run ? fmtRelative(p.last_run) : '—'}</td>
+      </tr>`).join('');
+  } else {
+    gpSection.style.display = 'none';
+  }
+}
+
+let expandedPipelineID = null;
+
+function stageBadge(stage) {
+  return `<span class="badge ${stage}">${stage.replace('_', ' ')}</span>`;
+}
+
+function trackBadge(track) {
+  return track ? `<span class="badge ${track}">${track}</span>` : '—';
+}
+
+function progressBar(completed, total) {
+  if (!total) return '—';
+  const pct = Math.round((completed / total) * 100);
+  return `${completed}/${total} <span class="progress-bar"><span class="progress-bar-fill" style="width:${pct}%"></span></span>`;
+}
+
+async function refreshPipelines() {
+  let pipelines;
+  try { pipelines = await fetchJSON('/api/pipelines'); }
+  catch (e) { return; } // server may not have pipeline store configured
+
+  const tbody = document.getElementById('pipelines-body');
+  if (!pipelines || pipelines.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No pipelines yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = pipelines.map(p => {
+    const issueNum = p.issue_number ? '#' + p.issue_number : '';
+    const issueLabel = p.issue_url ? `<a href="${p.issue_url}" target="_blank">${issueNum || p.issue_url}</a>` : (issueNum || '—');
+    const isExpanded = p.id === expandedPipelineID;
+    return `<tr class="clickable" onclick="togglePipelineDetail('${p.id}')">
+      <td>${issueLabel}</td>
+      <td class="mono">${p.repo || '—'}</td>
+      <td>${trackBadge(p.track)}</td>
+      <td>${stageBadge(p.stage)}</td>
+      <td class="mono">${progressBar(p.stories_completed, p.story_count)}</td>
+      <td class="cost">${fmtCost(p.cost_usd || 0)}</td>
+      <td class="mono">${fmtRelative(p.created_at)}</td>
+    </tr>
+    <tr id="detail-${p.id}" style="display:${isExpanded ? '' : 'none'}">
+      <td colspan="7" class="pipeline-detail open" id="detail-content-${p.id}">
+        <div class="rationale">${p.classification_rationale || '(not yet classified)'}</div>
+        <div class="mono" style="color:#4a5568">Loading detail…</div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  if (expandedPipelineID) {
+    loadPipelineDetail(expandedPipelineID);
+  }
+}
+
+async function togglePipelineDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  if (!row) return;
+  if (expandedPipelineID === id) {
+    expandedPipelineID = null;
+    row.style.display = 'none';
+    return;
+  }
+  if (expandedPipelineID) {
+    const prev = document.getElementById('detail-' + expandedPipelineID);
+    if (prev) prev.style.display = 'none';
+  }
+  expandedPipelineID = id;
+  row.style.display = '';
+  loadPipelineDetail(id);
+}
+
+function el(tag, attrs, text) {
+  const node = document.createElement(tag);
+  Object.entries(attrs || {}).forEach(([k, v]) => {
+    if (k === 'class') node.className = v;
+    else if (k === 'style') node.style.cssText = v;
+    else node.setAttribute(k, v);
+  });
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+async function loadPipelineDetail(id) {
+  const content = document.getElementById('detail-content-' + id);
+  if (!content) return;
+  try {
+    const p = await fetchJSON('/api/pipelines/' + id);
+    content.textContent = '';
+    content.appendChild(el('div', {'class': 'rationale'}, p.classification_rationale || '(not yet classified)'));
+    if (p.plan_output && p.plan_output.stories && p.plan_output.stories.length > 0) {
+      const ul = el('ul', {'class': 'story-list'});
+      p.plan_output.stories.forEach((s, i) => {
+        const done = i < p.stories_completed;
+        const li = el('li', {'class': done ? 'done' : ''}, (done ? '✓' : '○') + ' ' + s.title);
+        ul.appendChild(li);
+      });
+      content.appendChild(ul);
+    } else if (p.stage !== 'pending' && p.stage !== 'classifying') {
+      content.appendChild(el('div', {'class': 'mono', 'style': 'color:#4a5568'}, '(no plan yet)'));
+    }
+  } catch (e) {
+    if (content) { content.textContent = ''; content.appendChild(el('div', {'class': 'mono', 'style': 'color:#4a5568'}, 'Failed to load detail')); }
+  }
+}
+
+async function refresh() {
+  await Promise.allSettled([refreshBudget(), refreshTasks(), refreshEvents(), refreshJobs(), refreshPipelines()]);
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+// Log tail modal
+let logPollTimer = null;
+let logOffset = 0;
+let logRunID = null;
+
+function openLogModal(runID, title) {
+  logRunID = runID;
+  logOffset = 0;
+  document.getElementById('log-modal-title').textContent = title + ' — ' + runID.substring(0, 8);
+  const out = document.getElementById('log-output');
+  out.textContent = '';
+  out.insertAdjacentHTML('beforeend', '<span id="log-waiting" style="color:#4a5568;font-style:italic">Waiting for agent output…</span>');
+  document.getElementById('log-modal').classList.add('open');
+  pollLog();
+}
+
+function closeLogModal() {
+  document.getElementById('log-modal').classList.remove('open');
+  if (logPollTimer) { clearTimeout(logPollTimer); logPollTimer = null; }
+  logRunID = null;
+}
+
+async function pollLog() {
+  if (!logRunID) return;
+  try {
+    const data = await fetchJSON(`/api/jobs/${logRunID}/log?offset=${logOffset}`);
+    const out = document.getElementById('log-output');
+    const waiting = document.getElementById('log-waiting');
+    if (data.lines && data.lines.length > 0) {
+      if (waiting) waiting.remove();
+      out.textContent += data.lines.join('\n') + '\n';
+      out.scrollTop = out.scrollHeight;
+    }
+    logOffset = data.next_offset;
+    if (data.done) {
+      if (waiting) waiting.remove();
+      if (!out.textContent.trim()) out.textContent = '(no output captured)';
+    } else {
+      logPollTimer = setTimeout(pollLog, 2000);
+    }
+  } catch (e) {
+    logPollTimer = setTimeout(pollLog, 3000);
+  }
+}
+
+// Close modal on backdrop click
+document.getElementById('log-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLogModal();
+});
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

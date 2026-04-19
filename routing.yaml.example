@@ -1,0 +1,141 @@
+# ponko-runner routing configuration
+# Run `ponko-runner run` to execute one orchestration pass.
+# Run `ponko-runner status` to view active tasks.
+
+max_active_tasks: 3
+intake_label: ponko-runner:ready
+
+state_labels:
+  in_progress: ponko-runner:in-progress
+  blocked: ponko-runner:blocked
+  done: ponko-runner:done
+
+repos:
+  - owner: bryanneva
+    name: project-queue
+    path: ~/Development/github.com/bryanneva/project-queue
+  - owner: bryanneva
+    name: job-search-hub
+    path: ~/Development/github.com/bryanneva/job-search-hub
+  - owner: bryanneva
+    name: ponko-runtime
+    path: ~/Development/github.com/bryanneva/ponko-runtime
+  - owner: bryanneva
+    name: ponko
+    path: ~/Development/github.com/bryanneva/ponko
+  - owner: bryanneva
+    name: benchsheet
+    path: ~/Development/github.com/bryanneva/benchsheet
+
+rules:
+  - match:
+      labels: [workflow:ralph]
+    workflow: ralph
+  - match:
+      labels: [workflow:fix]
+    workflow: fix
+  - match:
+      labels: [size:small]
+    workflow: fix
+  - match:
+      labels: [size:large]
+    workflow: ralph
+  - match:
+      labels: []
+    workflow: rpi
+
+workflows:
+  fix:
+    runtime: claude-code
+    phases:
+      - name: implement
+        skill: fix
+      - name: wrap-up
+        skill: wrap-up
+
+  rpi:
+    runtime: claude-code
+    phases:
+      - name: research
+        skill: rpi-research
+      - name: plan
+        skill: rpi-plan
+        gate: plan-approved
+        model: opus
+      - name: implement
+        skill: rpi-implement
+      - name: wrap-up
+        skill: wrap-up
+
+  ralph:
+    runtime: claude-code
+    phases:
+      - name: prd
+        skill: prd
+      - name: implement
+        skill: ralph-ship
+      - name: wrap-up
+        skill: wrap-up
+
+budget:
+  per_run_usd: 5.00
+  per_day_usd: 20.00
+  per_task_usd: 3.00
+
+gates:
+  plan-approved: ponko-runner:plan-approved
+
+groom:
+  projects:
+    # priorityqueue workstream
+    - name: "Daily Driver"
+      repo: project-queue
+    - name: "Backend Migration"
+      repo: project-queue
+    - name: "Public Launch"
+      repo: project-queue
+    # job-search-hub workstream
+    - name: "Ingestion Pipeline"
+      repo: job-search-hub
+    - name: "JSH: Daily Driver"
+      repo: job-search-hub
+    - name: "Platform"
+      repo: job-search-hub
+    - name: "Interview Intelligence"
+      repo: job-search-hub
+    - name: "Formation Bridge"
+      repo: job-search-hub
+    # ponko workstream (ponko-runtime repo)
+    - name: "ponko: Local Runner"
+      repo: ponko-runtime
+    - name: "ponko: Cloud Runner"
+      repo: ponko-runtime
+    - name: "ponko: Cross-Repo"
+      repo: ponko-runtime
+    # ponko workstream (ponko repo)
+    - name: "personal-agent: Autonomous Dev Workflows"
+      repo: ponko
+    - name: "personal-agent: Design Patterns Cleanup"
+      repo: ponko
+    - name: "personal-agent: Model Routing Cost Efficiency"
+      repo: ponko
+    - name: "personal-agent: Proactive Messaging"
+      repo: ponko
+    - name: "personal-agent: Reliability Hardening"
+      repo: ponko
+    - name: "personal-agent: OTel Observability"
+      repo: ponko
+    # labbench workstream (benchsheet repo)
+    - name: "MVP"
+      repo: benchsheet
+    - name: "Post MVP Refinement"
+      repo: benchsheet
+    - name: "Inventory Kiosk"
+      repo: benchsheet
+    - name: "Lab Bench: Academic Labs"
+      repo: benchsheet
+    - name: "Lab Bench: Enterprise & Regulated Labs"
+      repo: benchsheet
+  default_model: haiku
+  synthesis_model: sonnet
+  max_budget_usd: 1.00
