@@ -11,7 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
@@ -35,23 +34,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer cancel()
 
-	databaseURL := os.Getenv("DATABASE_URL")
-	if databaseURL == "" {
-		databaseURL = "postgres://agent:agent@localhost:5433/agent_dev?sslmode=disable"
-	}
-
-	poolConfig, err := pgxpool.ParseConfig(databaseURL)
+	pool, err := db.NewPool(ctx, "")
 	if err != nil {
-		slog.Error("failed to parse database config", "error", err)
-		os.Exit(1)
-	}
-	poolConfig.HealthCheckPeriod = 30 * time.Second
-	poolConfig.MaxConnIdleTime = 5 * time.Minute
-	poolConfig.MaxConnLifetime = 30 * time.Minute
-
-	pool, poolErr := pgxpool.NewWithConfig(context.Background(), poolConfig)
-	if poolErr != nil {
-		slog.Error("failed to connect to database", "error", poolErr)
+		slog.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
 	defer pool.Close()
