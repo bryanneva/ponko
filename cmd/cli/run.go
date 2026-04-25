@@ -10,6 +10,7 @@ import (
 
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riversqlite"
+	"github.com/riverqueue/river/rivertype"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -119,7 +120,7 @@ func runOtto(cmd *cobra.Command, _ []string) error {
 		}
 	}()
 
-	if err := doIntake(ctx, cfg, intaker, router, client, db, bus); err != nil {
+	if err := doIntake(ctx, cfg, intaker, router, client, bus); err != nil {
 		return fmt.Errorf("intake: %w", err)
 	}
 	if err := sqlite.DrainRiverQueue(ctx, db); err != nil {
@@ -151,10 +152,9 @@ func doIntake(
 	intaker *intake.Intake,
 	router *routing.Router,
 	client *river.Client[*sql.Tx],
-	db *sql.DB,
 	bus event.Bus,
 ) error {
-	active, err := countActiveRiverTasks(ctx, db)
+	active, err := countActiveRiverTasks(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -204,18 +204,22 @@ func doIntake(
 	return nil
 }
 
-func countActiveRiverTasks(ctx context.Context, db *sql.DB) (int, error) {
-	var count int
-	err := db.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM river_job
-		WHERE kind IN ('task_phase', 'approval_poller')
-		  AND state IN ('available', 'running', 'pending', 'retryable', 'scheduled')
-	`).Scan(&count)
+func countActiveRiverTasks(ctx context.Context, client *river.Client[*sql.Tx]) (int, error) {
+	params := river.NewJobListParams().
+		Kinds("task_phase", "approval_poller").
+		States(
+			rivertype.JobStateAvailable,
+			rivertype.JobStateRunning,
+			rivertype.JobStatePending,
+			rivertype.JobStateRetryable,
+			rivertype.JobStateScheduled,
+		).
+		First(10000)
+	result, err := client.JobList(ctx, params)
 	if err != nil {
-		return 0, fmt.Errorf("count active river tasks: %w", err)
+		return 0, fmt.Errorf("list active river tasks: %w", err)
 	}
-	return count, nil
+	return len(result.Jobs), nil
 }
 
 func taskPhaseArgs(issue *task.Task) worker.TaskPhaseArgs {
