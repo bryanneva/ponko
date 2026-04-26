@@ -57,11 +57,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
-	if anthropicKey == "" {
-		slog.Warn("ANTHROPIC_API_KEY not set, ProcessJob will fail")
-	}
-	claudeClient := llm.NewClient(anthropicKey, "")
+	llmClient := buildLLMClient()
 
 	slackBotToken := os.Getenv("SLACK_BOT_TOKEN")
 	if slackBotToken == "" {
@@ -178,7 +174,7 @@ func main() {
 		SystemPrompt: os.Getenv("SYSTEM_PROMPT"),
 		BotName:      botName,
 		Pool:         pool,
-		Claude:       claudeClient,
+		Claude:       llmClient,
 		Slack:        slackClient,
 		UserStore:    userStore,
 		Timezone:     tz,
@@ -191,13 +187,13 @@ func main() {
 	river.AddWorker(workers, &jobs.SlackReplyWorker{Slack: slackClient})
 	river.AddWorker(workers, &jobs.PlanWorker{
 		Pool:       pool,
-		Claude:     claudeClient,
+		Claude:     llmClient,
 		Slack:      slackClient,
 		AppBaseURL: os.Getenv("DASHBOARD_URL"),
 	})
 	river.AddWorker(workers, &jobs.ExecuteWorker{
 		Pool:         pool,
-		Claude:       claudeClient,
+		Claude:       llmClient,
 		MCPClient:    toolDispatcher,
 		Tools:        allTools,
 		UserStore:    userStore,
@@ -205,13 +201,13 @@ func main() {
 		SystemPrompt: os.Getenv("SYSTEM_PROMPT"),
 		BotName:      botName,
 	})
-	river.AddWorker(workers, &jobs.SynthesizeWorker{Pool: pool, Claude: claudeClient})
+	river.AddWorker(workers, &jobs.SynthesizeWorker{Pool: pool, Claude: llmClient})
 
 	proactiveWorker := &jobs.ProactiveMessageWorker{
 		SystemPrompt: os.Getenv("SYSTEM_PROMPT"),
 		BotName:      botName,
 		Pool:         pool,
-		Claude:       claudeClient,
+		Claude:       llmClient,
 		Slack:        slackClient,
 		Timezone:     tz,
 		MCPClient:    toolDispatcher,
@@ -302,4 +298,49 @@ func main() {
 	slog.Info("shutting down...")
 
 	gracefulShutdown(srv, client, telemetry, 8*time.Second)
+}
+
+// buildLLMClient picks the LLM provider based on LLM_PROVIDER env.
+//   - "openrouter" or "openai": OpenAI-compatible Chat Completions (default base
+//     URL openrouter.ai). Required: OPENROUTER_API_KEY (or OPENAI_API_KEY).
+//     Optional: OPENROUTER_BASE_URL, OPENROUTER_MODEL_SONNET,
+//     OPENROUTER_MODEL_HAIKU.
+//   - anything else (default): Anthropic Claude. Required: ANTHROPIC_API_KEY.
+func buildLLMClient() jobs.LLMClient {
+	provider := strings.ToLower(strings.TrimSpace(os.Getenv("LLM_PROVIDER")))
+	switch provider {
+	case "openrouter", "openai":
+		key := os.Getenv("OPENROUTER_API_KEY")
+		if key == "" {
+			key = os.Getenv("OPENAI_API_KEY")
+		}
+		if key == "" {
+			slog.Warn("LLM_PROVIDER is openrouter/openai but neither OPENROUTER_API_KEY nor OPENAI_API_KEY is set; LLM calls will fail")
+		}
+		overrides := map[string]string{}
+		if v := os.Getenv("OPENROUTER_MODEL_SONNET"); v != "" {
+			overrides[llm.ModelSonnet] = v
+		}
+		if v := os.Getenv("OPENROUTER_MODEL_HAIKU"); v != "" {
+			overrides[llm.ModelHaiku] = v
+		}
+		slog.Info("using openai-compat LLM provider",
+			"base_url", os.Getenv("OPENROUTER_BASE_URL"),
+			"sonnet_model", overrides[llm.ModelSonnet],
+			"haiku_model", overrides[llm.ModelHaiku],
+		)
+		return llm.NewOpenAIClient(llm.OpenAIConfig{
+			APIKey:         key,
+			BaseURL:        os.Getenv("OPENROUTER_BASE_URL"),
+			Referer:        os.Getenv("OPENROUTER_REFERER"),
+			Title:          "Ponko",
+			ModelOverrides: overrides,
+		})
+	default:
+		key := os.Getenv("ANTHROPIC_API_KEY")
+		if key == "" {
+			slog.Warn("ANTHROPIC_API_KEY not set, ProcessJob will fail")
+		}
+		return llm.NewClient(key, "")
+	}
 }
