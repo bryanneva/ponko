@@ -15,7 +15,7 @@ RUN go mod download
 
 COPY . .
 COPY --from=web-builder /app/web/dist web/dist
-RUN CGO_ENABLED=0 go build -o server ./cmd/server
+RUN CGO_ENABLED=0 go build -o server ./cmd/slack
 
 FROM debian:bookworm-slim
 
